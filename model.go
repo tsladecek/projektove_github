@@ -1,7 +1,19 @@
 package projektove
 
 import (
+	"regexp"
+	"strconv"
 	"time"
+)
+
+type ProjektoveStatus int
+
+const (
+	ProjektoveStatusNew ProjektoveStatus = iota
+	ProjektoveStatusInProgress
+	ProjektoveStatusResolved
+	ProjektoveStatusFeedback
+	ProjektoveStatusClosed
 )
 
 type ProjektoveProject struct {
@@ -33,9 +45,22 @@ type ProjektoveIssue struct {
 	CreatedOn   time.Time             `json:"createdOn"`
 }
 
+// regex to extract GitHub issue ID from the Projektove description
+var ghIssueRegex = regexp.MustCompile(`https://github\.com/[^/]+/[^/]+/issues/(\d+)`)
+
 // determines whether this issue should be synced with github repository
 // empty string means no
+var ghRepoRegex = regexp.MustCompile(`GitHub (?:Repository|Repo):\s*([a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+)`)
+
 func (p ProjektoveIssue) GithubRepository() string {
+	matches := ghRepoRegex.FindStringSubmatch(p.Description)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	matches = ghRepoRegex.FindStringSubmatch(p.Subject)
+	if len(matches) > 1 {
+		return matches[1]
+	}
 	return ""
 }
 
@@ -43,6 +68,13 @@ func (p ProjektoveIssue) GithubRepository() string {
 // this is filled when the issue is synchronized with github
 // 0 means that the issue has not been yet created
 func (p ProjektoveIssue) GithubID() int {
+	matches := ghIssueRegex.FindStringSubmatch(p.Description)
+	if len(matches) > 1 {
+		id, err := strconv.Atoi(matches[1])
+		if err == nil {
+			return id
+		}
+	}
 	return 0
 }
 
@@ -54,6 +86,7 @@ type ProjektoveIssueUpdate struct {
 	DueDate      time.Time `json:"due_date"`
 	AuthorID     int       `json:"author_id"`
 	AssignedToID int       `json:"assigned_to_id"`
+	StatusID     int       `json:"status_id"`
 }
 
 type GithubIssueState string
@@ -97,6 +130,7 @@ type GithubPullRequest struct {
 	CreatedAt time.Time              `json:"created_at"`
 	ClosedAt  time.Time              `json:"closed_at"`
 	CreatedBy string                 `json:"created_by"`          // github username
+	ClosedBy  string                 `json:"closed_by"`           // github username
 	Assignees []string               `json:"assignees"`           // github usernames
 	Reviewers []string               `json:"requested_reviewers"` // github usernames
 }
