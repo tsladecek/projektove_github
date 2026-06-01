@@ -39,7 +39,7 @@ func MatchIssues(projektove []ProjektoveIssue, github map[string][]GithubIssue) 
 	return matched
 }
 
-func Synchronize(ctx context.Context, projektove Projektove, github Github, usernameMap map[string]int) error {
+func Synchronize(ctx context.Context, projektove Projektove, github Github, users Users, dryRun bool) error {
 	// fetch all issues from projektove
 	projectoveIssues, err := projektove.ListIssues(ctx)
 	if err != nil {
@@ -66,12 +66,6 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 
 	matched := MatchIssues(projectoveIssues, githubIssues)
 
-	// Invert usernameMap
-	userIdToUsername := make(map[int]string)
-	for username, id := range usernameMap {
-		userIdToUsername[id] = username
-	}
-
 	plan := make(map[string]func() error)
 
 	for _, m := range matched {
@@ -81,10 +75,13 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 		switch {
 		case m.Github == nil: // create
 			plan["create:"+key] = func() error {
-				assignee := userIdToUsername[m.Projektove.AssignedTo.ID]
 				var assignees []GithubUser
-				if assignee != "" {
-					assignees = []GithubUser{{Login: assignee}}
+				if m.Projektove.AssignedTo != nil {
+					assignee, found := users.GetGithubUser(*m.Projektove.AssignedTo)
+					if !found {
+						return fmt.Errorf("github user for projektove assignee %+v not found", m.Projektove.AssignedTo)
+					}
+					assignees = []GithubUser{assignee}
 				}
 
 				body := GithubIssueCreate{
@@ -123,14 +120,16 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 			fmt.Printf("[START] %s\n", k)
 			mu.Unlock()
 
-			if err := a(); err != nil {
-				mu.Lock()
-				fmt.Printf("[FAIL] %s: %v\n", k, err)
-				mu.Unlock()
-			} else {
-				mu.Lock()
-				fmt.Printf("[SUCCESS] %s\n", k)
-				mu.Unlock()
+			if !dryRun {
+				if err := a(); err != nil {
+					mu.Lock()
+					fmt.Printf("[FAIL] %s: %v\n", k, err)
+					mu.Unlock()
+				} else {
+					mu.Lock()
+					fmt.Printf("[SUCCESS] %s\n", k)
+					mu.Unlock()
+				}
 			}
 		}(key, action)
 	}

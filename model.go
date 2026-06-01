@@ -28,7 +28,7 @@ type ProjektoveIssueStatus struct {
 	Role     string `json:"role"`
 }
 
-type ProjectoveUser struct {
+type ProjektoveUser struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
@@ -37,8 +37,8 @@ type ProjektoveIssue struct {
 	ID          int                   `json:"id"`
 	Project     ProjektoveProject     `json:"project"`
 	Status      ProjektoveIssueStatus `json:"status"`
-	Author      ProjectoveUser        `json:"author"`
-	AssignedTo  ProjectoveUser        `json:"assignedTo"`
+	Author      ProjektoveUser        `json:"author"`
+	AssignedTo  *ProjektoveUser       `json:"assignedTo"`
 	Subject     string                `json:"subject"`
 	Description string                `json:"description"`
 	DueDate     time.Time             `json:"dueDate"`
@@ -138,4 +138,31 @@ type GithubPullRequest struct {
 	ClosedBy  *GithubUser            `json:"closed_by"`
 	Assignees []GithubUser           `json:"assignees"`
 	Reviewers []GithubUser           `json:"requested_reviewers"`
+}
+
+type User struct {
+	Github     GithubUser
+	Projektove ProjektoveUser
+}
+
+type Users []User
+
+func (u Users) GetProjektoveUser(g GithubUser) (ProjektoveUser, bool) {
+	for _, user := range u {
+		if user.Github == g {
+			return user.Projektove, true
+		}
+	}
+
+	return ProjektoveUser{}, false
+}
+
+func (u Users) GetGithubUser(p ProjektoveUser) (GithubUser, bool) {
+	for _, user := range u {
+		if user.Projektove == p {
+			return user.Github, true
+		}
+	}
+
+	return GithubUser{}, false
 }

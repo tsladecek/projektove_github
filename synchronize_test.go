@@ -11,7 +11,7 @@ import (
 
 func TestMatchIssues(t *testing.T) {
 	tests := []struct {
-		name      string
+		name       string
 		projektove []ProjektoveIssue
 		github     map[string][]GithubIssue
 		want       []ProjektoveGithub
@@ -59,7 +59,7 @@ func TestMatchIssues(t *testing.T) {
 					ID:          10,
 					Subject:     "Fix bug",
 					Description: "GitHub Repo: owner/repo\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug",
-					AssignedTo:  ProjectoveUser{ID: 1, Name: "tester"},
+					AssignedTo:  &ProjektoveUser{ID: 1, Name: "tester"},
 				},
 			},
 			github: map[string][]GithubIssue{
@@ -74,7 +74,7 @@ func TestMatchIssues(t *testing.T) {
 						ID:          10,
 						Subject:     "Fix bug",
 						Description: "GitHub Repo: owner/repo\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug",
-						AssignedTo:  ProjectoveUser{ID: 1, Name: "tester"},
+						AssignedTo:  &ProjektoveUser{ID: 1, Name: "tester"},
 					},
 					Github: &GithubIssue{
 						ID:    99,
@@ -217,7 +217,7 @@ func TestSynchronize(t *testing.T) {
 		name             string
 		projektoveIssues []ProjektoveIssue
 		githubIssues     map[string][]GithubIssue
-		usernameMap      map[string]int
+		users            Users
 		listIssuesErr    bool
 		wantCreates      []createCall
 		wantCloses       []closeCall
@@ -348,15 +348,15 @@ func TestSynchronize(t *testing.T) {
 					ID:          200,
 					Subject:     "Assigned task",
 					Description: "GitHub Repo: team/repo",
-					AssignedTo:  ProjectoveUser{ID: 736, Name: "Tomas"},
+					AssignedTo:  &ProjektoveUser{ID: 1, Name: "proje"},
 				},
 			},
-			usernameMap: map[string]int{"tomas": 736},
+			users: Users{{Github: GithubUser{ID: 736, Login: "login"}, Projektove: ProjektoveUser{ID: 1, Name: "proje"}}},
 			wantCreates: []createCall{
 				{repo: "team/repo", issue: GithubIssueCreate{
 					Title:     "Assigned task",
 					Body:      "GitHub Repo: team/repo",
-					Assignees: []GithubUser{{Login: "tomas"}},
+					Assignees: []GithubUser{{ID: 736, Login: "login"}},
 				}},
 			},
 			wantCloses: nil,
@@ -408,7 +408,7 @@ func TestSynchronize(t *testing.T) {
 				return nil
 			}
 
-			err := Synchronize(ctx, mockProj, mockGH, tt.usernameMap)
+			err := Synchronize(ctx, mockProj, mockGH, tt.users, false)
 
 			if tt.wantErr {
 				assert.Error(t, err)
