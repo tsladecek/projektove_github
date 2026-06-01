@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type ProjektoveAPI struct {
@@ -17,6 +18,12 @@ type ProjektoveAPI struct {
 
 type projektoveListResponse struct {
 	Issues []ProjektoveIssue `json:"issues"`
+}
+
+func (plr *projektoveListResponse) fixDescriptions() {
+	for i := range plr.Issues {
+		plr.Issues[i].Description = strings.ReplaceAll(plr.Issues[i].Description, " ", " ")
+	}
 }
 
 type projektoveUpdateBody struct {
@@ -52,6 +59,8 @@ func (p ProjektoveAPI) ListIssues(ctx context.Context) ([]ProjektoveIssue, error
 	if err := p.client.DoRaw(req, &resp); err != nil {
 		return nil, fmt.Errorf("list issues: %w", err)
 	}
+
+	resp.fixDescriptions()
 
 	return resp.Issues, nil
 }

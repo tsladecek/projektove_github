@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMatchIssues(t *testing.T) {
@@ -58,7 +59,7 @@ func TestMatchIssues(t *testing.T) {
 				{
 					ID:          10,
 					Subject:     "Fix bug",
-					Description: "GitHub Repo: owner/repo\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug",
+					Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 99\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug",
 					AssignedTo:  &ProjektoveUser{ID: 1, Name: "tester"},
 				},
 			},
@@ -73,7 +74,7 @@ func TestMatchIssues(t *testing.T) {
 					Projektove: ProjektoveIssue{
 						ID:          10,
 						Subject:     "Fix bug",
-						Description: "GitHub Repo: owner/repo\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug",
+						Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 99\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug",
 						AssignedTo:  &ProjektoveUser{ID: 1, Name: "tester"},
 					},
 					Github: &GithubIssue{
@@ -110,38 +111,17 @@ func TestMatchIssues(t *testing.T) {
 			},
 		},
 		{
-			name: "repo marker in subject as fallback",
-			projektove: []ProjektoveIssue{
-				{
-					ID:          7,
-					Subject:     "GitHub Repo: fallback/repo",
-					Description: "no marker here, but subject has it",
-				},
-			},
-			github: nil,
-			want: []ProjektoveGithub{
-				{
-					Projektove: ProjektoveIssue{
-						ID:          7,
-						Subject:     "GitHub Repo: fallback/repo",
-						Description: "no marker here, but subject has it",
-					},
-					Github: nil,
-				},
-			},
-		},
-		{
 			name: "multiple issues across different repos",
 			projektove: []ProjektoveIssue{
 				{
 					ID:          1,
 					Subject:     "A",
-					Description: "GitHub Repository: a/repo\nhttps://github.com/a/repo/issues/10",
+					Description: "GitHub Repository: a/repo\nGitHub Issue ID: 10",
 				},
 				{
 					ID:          2,
 					Subject:     "B",
-					Description: "GitHub Repo: b/repo\nhttps://github.com/b/repo/issues/20",
+					Description: "GitHub Repository: b/repo\nhttps://github.com/b/repo/issues/20",
 				},
 				{
 					ID:          3,
@@ -157,11 +137,11 @@ func TestMatchIssues(t *testing.T) {
 			},
 			want: []ProjektoveGithub{
 				{
-					Projektove: ProjektoveIssue{ID: 1, Subject: "A", Description: "GitHub Repository: a/repo\nhttps://github.com/a/repo/issues/10"},
+					Projektove: ProjektoveIssue{ID: 1, Subject: "A", Description: "GitHub Repository: a/repo\nGitHub Issue ID: 10"},
 					Github:     &GithubIssue{ID: 10, Title: "A", State: GithubIssueStateOpen},
 				},
 				{
-					Projektove: ProjektoveIssue{ID: 2, Subject: "B", Description: "GitHub Repo: b/repo\nhttps://github.com/b/repo/issues/20"},
+					Projektove: ProjektoveIssue{ID: 2, Subject: "B", Description: "GitHub Repository: b/repo\nhttps://github.com/b/repo/issues/20"},
 					Github:     nil,
 				},
 			},
@@ -190,7 +170,7 @@ func TestMatchIssues(t *testing.T) {
 				if w.Github == nil {
 					assert.Nil(t, g.Github, "expected nil Github at index %d", i)
 				} else {
-					assert.NotNil(t, g.Github, "expected non-nil Github at index %d", i)
+					require.NotNil(t, g.Github, "expected non-nil Github at index %d", i)
 					assert.Equal(t, w.Github.ID, g.Github.ID, "Github ID mismatch at index %d", i)
 					assert.Equal(t, w.Github.Title, g.Github.Title, "Github title mismatch at index %d", i)
 					assert.Equal(t, w.Github.State, g.Github.State, "Github state mismatch at index %d", i)
@@ -205,7 +185,7 @@ type createCall struct {
 	issue GithubIssueCreate
 }
 
-type closeCall struct {
+type updateCall struct {
 	issueID int
 	update  ProjektoveIssueUpdate
 }
@@ -220,14 +200,14 @@ func TestSynchronize(t *testing.T) {
 		users            Users
 		listIssuesErr    bool
 		wantCreates      []createCall
-		wantCloses       []closeCall
+		wantUpdate       []updateCall
 		wantErr          bool
 	}{
 		{
 			name:             "no issues",
 			projektoveIssues: nil,
 			wantCreates:      nil,
-			wantCloses:       nil,
+			wantUpdate:       nil,
 		},
 		{
 			name: "no repo marker",
@@ -235,7 +215,7 @@ func TestSynchronize(t *testing.T) {
 				{ID: 1, Subject: "normal task", Description: "nothing to sync"},
 			},
 			wantCreates: nil,
-			wantCloses:  nil,
+			wantUpdate:  nil,
 		},
 		{
 			name: "create new github issue",
@@ -250,10 +230,12 @@ func TestSynchronize(t *testing.T) {
 			wantCreates: []createCall{
 				{repo: "owner/repo", issue: GithubIssueCreate{
 					Title: "Implement login",
-					Body:  "GitHub Repository: owner/repo\n\nNeed login page",
+					Body:  "GitHub Repository: owner/repo\n\nNeed login page\n\nhttps://app.projektove.cz//tasks/10",
 				}},
 			},
-			wantCloses: nil,
+			wantUpdate: []updateCall{
+				{issueID: 10, update: ProjektoveIssueUpdate{Description: "GitHub Repository: owner/repo\n\nNeed login page\n\nGitHub Issue URL: \n\nGitHub Issue ID: 999"}},
+			},
 		},
 		{
 			name: "close projektove when github issue is closed",
@@ -261,7 +243,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          20,
 					Subject:     "Done task",
-					Description: "GitHub Repo: owner/repo\nhttps://github.com/owner/repo/issues/5",
+					Description: "GitHub Repo: owner/repo\nGitHub Issue ID: 5",
 					Status:      ProjektoveIssueStatus{IsClosed: false},
 				},
 			},
@@ -271,7 +253,7 @@ func TestSynchronize(t *testing.T) {
 				},
 			},
 			wantCreates: nil,
-			wantCloses: []closeCall{
+			wantUpdate: []updateCall{
 				{issueID: 20, update: ProjektoveIssueUpdate{StatusID: int(ProjektoveStatusClosed)}},
 			},
 		},
@@ -291,7 +273,7 @@ func TestSynchronize(t *testing.T) {
 				},
 			},
 			wantCreates: nil,
-			wantCloses:  nil,
+			wantUpdate:  nil,
 		},
 		{
 			name: "both closed does nothing",
@@ -309,7 +291,7 @@ func TestSynchronize(t *testing.T) {
 				},
 			},
 			wantCreates: nil,
-			wantCloses:  nil,
+			wantUpdate:  nil,
 		},
 		{
 			name: "mixed create and close",
@@ -337,8 +319,9 @@ func TestSynchronize(t *testing.T) {
 					Body:  "GitHub Repository: team/proj\n\nBrand new",
 				}},
 			},
-			wantCloses: []closeCall{
+			wantUpdate: []updateCall{
 				{issueID: 101, update: ProjektoveIssueUpdate{StatusID: int(ProjektoveStatusClosed)}},
+				{issueID: 100, update: ProjektoveIssueUpdate{Description: "GitHub Repository: team/proj\n\nBrand new\n\nGitHub Issue URL: \n\nGitHub Issue ID: "}},
 			},
 		},
 		{
@@ -356,10 +339,12 @@ func TestSynchronize(t *testing.T) {
 				{repo: "team/repo", issue: GithubIssueCreate{
 					Title:     "Assigned task",
 					Body:      "GitHub Repo: team/repo",
-					Assignees: []GithubUser{{ID: 736, Login: "login"}},
+					Assignees: []string{"login"},
 				}},
 			},
-			wantCloses: nil,
+			wantUpdate: []updateCall{
+				{issueID: 200, update: ProjektoveIssueUpdate{Description: "GitHub Repo: team/repo\n\nGitHub Issue URL: \n\nGitHub Issue ID: "}},
+			},
 		},
 		{
 			name:          "list issues error",
@@ -372,7 +357,7 @@ func TestSynchronize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var mu sync.Mutex
 			var gotCreates []createCall
-			var gotCloses []closeCall
+			var gotUpdates []updateCall
 
 			mockProj := &MockProjektove{}
 			mockGH := &MockGithub{}
@@ -403,7 +388,7 @@ func TestSynchronize(t *testing.T) {
 
 			mockProj.UpdateIssueFunc = func(ctx context.Context, issueID int, obj ProjektoveIssueUpdate) error {
 				mu.Lock()
-				gotCloses = append(gotCloses, closeCall{issueID: issueID, update: obj})
+				gotUpdates = append(gotUpdates, updateCall{issueID: issueID, update: obj})
 				mu.Unlock()
 				return nil
 			}
@@ -432,13 +417,13 @@ func TestSynchronize(t *testing.T) {
 				}
 			}
 
-			if tt.wantCloses == nil {
-				assert.Empty(t, gotCloses, "expected no close calls")
+			if tt.wantUpdate == nil {
+				assert.Empty(t, gotUpdates, "expected no close calls")
 			} else {
-				assert.Len(t, gotCloses, len(tt.wantCloses))
-				for i, w := range tt.wantCloses {
-					assert.Equal(t, w.issueID, gotCloses[i].issueID, "close issue ID mismatch at %d", i)
-					assert.Equal(t, w.update, gotCloses[i].update, "close update mismatch at %d", i)
+				require.Len(t, gotUpdates, len(tt.wantUpdate))
+				for i, w := range tt.wantUpdate {
+					assert.Equal(t, w.issueID, gotUpdates[i].issueID, "close issue ID mismatch at %d", i)
+					assert.Equal(t, w.update, gotUpdates[i].update, "close update mismatch at %d", i)
 				}
 			}
 		})

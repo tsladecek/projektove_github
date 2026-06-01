@@ -17,6 +17,7 @@ func MatchIssues(projektove []ProjektoveIssue, github map[string][]GithubIssue) 
 	var matched []ProjektoveGithub
 	for _, p := range projektove {
 		repo := p.GithubRepository()
+
 		if repo == "" {
 			continue
 		}
@@ -64,39 +65,39 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 		githubIssues[repo] = issues
 	}
 
+	fmt.Printf("%v\n", githubIssues)
+
 	matched := MatchIssues(projectoveIssues, githubIssues)
 
 	plan := make(map[string]func() error)
 
 	for _, m := range matched {
 		repo := m.Projektove.GithubRepository()
-		key := fmt.Sprintf("%s/%d", repo, m.Projektove.ID)
+		key := fmt.Sprintf("ProjektoveIssue: %d, Github Repository: %s", m.Projektove.ID, repo)
 
 		switch {
 		case m.Github == nil: // create
-			plan["create:"+key] = func() error {
-				var assignees []GithubUser
-				if m.Projektove.AssignedTo != nil {
-					assignee, found := users.GetGithubUser(*m.Projektove.AssignedTo)
-					if !found {
-						return fmt.Errorf("github user for projektove assignee %+v not found", m.Projektove.AssignedTo)
-					}
-					assignees = []GithubUser{assignee}
+			plan["create: "+key] = func() error {
+				body, err := GithubIssueCreateFromProjektove(m.Projektove, users)
+				if err != nil {
+					return fmt.Errorf("when constructing github create object from projektove issue: %w", err)
 				}
-
-				body := GithubIssueCreate{
-					Title:     m.Projektove.Subject,
-					Body:      m.Projektove.Description,
-					Assignees: assignees,
-				}
-				if _, err := github.CreateIssue(ctx, repo, body); err != nil {
+				gi, err := github.CreateIssue(ctx, repo, body)
+				if err != nil {
 					return fmt.Errorf("when creating issue on github: %w", err)
 				}
+
+				m.Projektove.AnnotateWithGithubIssue(gi)
+				updateObj := ProjektoveIssueUpdate{Description: m.Projektove.Description}
+				if err := projektove.UpdateIssue(ctx, m.Projektove.ID, updateObj); err != nil {
+					return fmt.Errorf("when updating projektove issue description: %w", err)
+				}
+
 				return nil
 			}
 
 		case m.Github.State == GithubIssueStateClosed && !m.Projektove.Status.IsClosed: // close
-			plan["close:"+key] = func() error {
+			plan["close: "+key] = func() error {
 				if err := projektove.UpdateIssue(ctx, m.Projektove.ID, ProjektoveIssueUpdate{
 					StatusID: int(ProjektoveStatusClosed),
 				}); err != nil {

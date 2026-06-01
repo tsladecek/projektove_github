@@ -18,12 +18,12 @@ func main() {
 }
 
 func run() error {
-	projektoveURL := flag.String("projektove-url", "https://geneton.projektove.cz", "Projektove base URL (required)")
-	projektoveToken := flag.String("projektove-token", "", "Projektove API token (required)")
-	githubToken := flag.String("github-token", "", "GitHub API token (required)")
-	githubURL := flag.String("github-url", "https://api.github.com", "GitHub API base URL")
-	usernameMapRaw := flag.String("username-map", "", "Comma-separated github_user=projektove_user_id (e.g. tomas=736,john=123)")
-	dryRun := flag.Bool("dry-run", false, "dry run exits before the requests are made")
+	projektoveURL := flag.String("projektoveURL", "", "Projektove base URL (required)")
+	projektoveToken := flag.String("projektoveToken", "", "Projektove API token (required)")
+	githubToken := flag.String("githubToken", "", "GitHub API token (required)")
+	githubURL := flag.String("githubURL", "https://api.github.com", "GitHub API base URL")
+	usersRaw := flag.String("users", "", `list of users in JSON format: [{"projektove": {"id": ..., "name": ...}, "github": {"id": ..., "login": ...}}]`)
+	dryRun := flag.Bool("dryRun", false, "dry run exits before the requests are made")
 	flag.Parse()
 
 	if *projektoveURL == "" || *projektoveToken == "" || *githubToken == "" {
@@ -31,7 +31,7 @@ func run() error {
 		os.Exit(2)
 	}
 
-	usernameMap, err := parseUsernameMap(*usernameMapRaw)
+	users, err := parseUsers(*usersRaw)
 	if err != nil {
 		return fmt.Errorf("parse username map: %w", err)
 	}
@@ -48,12 +48,12 @@ func run() error {
 		return fmt.Errorf("init github: %w", err)
 	}
 
-	return projektove.Synchronize(context.Background(), projAPI, ghAPI, usernameMap, *dryRun)
+	return projektove.Synchronize(context.Background(), projAPI, ghAPI, users, *dryRun)
 }
 
-func parseUsernameMap(raw string) (projektove.Users, error) {
+func parseUsers(raw string) (projektove.Users, error) {
 	if raw == "" {
-		return nil, nil
+		return projektove.Users{}, fmt.Errorf("no users supplied")
 	}
 	m := make(projektove.Users, 0)
 	if err := json.Unmarshal([]byte(raw), &m); err != nil {

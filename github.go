@@ -41,7 +41,7 @@ func (g GithubAPI) repoURL(repository, endpoint string) string {
 }
 
 func (g GithubAPI) ListIssues(ctx context.Context, repository string) ([]GithubIssue, error) {
-	u := g.repoURL(repository, "issues")
+	u := g.repoURL(repository, "issues") + "?state=all"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
