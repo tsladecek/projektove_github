@@ -25,9 +25,7 @@ type MockGithub struct {
 	ListIssuesFunc     func(ctx context.Context, repository string) ([]GithubIssue, error)
 	CreateIssueFunc    func(ctx context.Context, repository string, issue GithubIssueCreate) (GithubIssue, error)
 	UpdateIssueFunc    func(ctx context.Context, repository string, id int, issue GithubIssueUpdate) error
-	CloseIssueFunc     func(ctx context.Context, repository string, id int) error
 	GetPullRequestFunc func(ctx context.Context, repository string, id int) (GithubPullRequest, error)
-	IssueLinkFunc      func(repository string, id int) string
 }
 
 func (m *MockGithub) ListIssues(ctx context.Context, repository string) ([]GithubIssue, error) {
@@ -51,23 +49,9 @@ func (m *MockGithub) UpdateIssue(ctx context.Context, repository string, id int,
 	return nil
 }
 
-func (m *MockGithub) CloseIssue(ctx context.Context, repository string, id int) error {
-	if m.CloseIssueFunc != nil {
-		return m.CloseIssueFunc(ctx, repository, id)
-	}
-	return nil
-}
-
 func (m *MockGithub) GetPullRequest(ctx context.Context, repository string, id int) (GithubPullRequest, error) {
 	if m.GetPullRequestFunc != nil {
 		return m.GetPullRequestFunc(ctx, repository, id)
 	}
 	return GithubPullRequest{}, nil
-}
-
-func (m *MockGithub) IssueLink(repository string, id int) string {
-	if m.IssueLinkFunc != nil {
-		return m.IssueLinkFunc(repository, id)
-	}
-	return ""
 }
