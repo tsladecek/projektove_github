@@ -1,19 +1,29 @@
 package projektove
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 )
 
 type ProjektoveAPI struct {
-	client  *http.Client
+	client  *Client
 	baseURL *url.URL
 	token   string
 }
 
-func NewProjektoveAPI(baseURL, token string, client *http.Client) (Projektove, error) {
+type projektoveListResponse struct {
+	Issues []ProjektoveIssue `json:"issues"`
+}
+
+type projektoveUpdateBody struct {
+	Issue ProjektoveIssueUpdate `json:"issue"`
+}
+
+func NewProjektoveAPI(baseURL, token string, client *Client) (Projektove, error) {
 	burl, err := url.Parse(baseURL)
 	if err != nil {
 		return ProjektoveAPI{}, fmt.Errorf("when parsing projektove url %q: %w", baseURL, err)
@@ -29,15 +39,44 @@ func NewProjektoveAPI(baseURL, token string, client *http.Client) (Projektove, e
 	}, nil
 }
 
-// endpoint: GET /issues.json
 func (p ProjektoveAPI) ListIssues(ctx context.Context) ([]ProjektoveIssue, error) {
-	return nil, nil
+	u := p.baseURL.JoinPath("issues.json").String()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create list issues request: %w", err)
+	}
+	req.Header.Set("X-API-Authorization", p.token)
+
+	var resp projektoveListResponse
+	if err := p.client.DoRaw(req, &resp); err != nil {
+		return nil, fmt.Errorf("list issues: %w", err)
+	}
+
+	return resp.Issues, nil
 }
 
-// endpoint: PUT /issues/{issueID}.json
-// body (json): {"issue": {"status_id": <status ID>}}
-// Header: Content-Type: application/json
-// Header: X-API-Authorization: <token>
 func (p ProjektoveAPI) UpdateIssue(ctx context.Context, issueID int, obj ProjektoveIssueUpdate) error {
+	u := p.baseURL.JoinPath(fmt.Sprintf("issues/%d.json", issueID)).String()
+
+	body := projektoveUpdateBody{
+		Issue: obj,
+	}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshal update body: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("create update issue request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Authorization", p.token)
+
+	if err := p.client.DoRaw(req, nil); err != nil {
+		return fmt.Errorf("update issue #%d: %w", issueID, err)
+	}
+
 	return nil
 }

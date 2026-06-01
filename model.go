@@ -103,34 +103,39 @@ const (
 	GithubPullRequestStateClosed GithubPullRequestState = "closed"
 )
 
+type GithubUser struct {
+	ID    int    `json:"id"`
+	Login string `json:"login"`
+}
+
 type GithubIssue struct {
-	ID        int              `json:"id"`
+	ID        int              `json:"number"`
 	Title     string           `json:"title"`
 	Body      string           `json:"body"`
-	Assignees []string         `json:"assignees"`
-	State     GithubIssueState `json:"state"` // either open or closed
+	Assignees []GithubUser     `json:"assignees"`
+	State     GithubIssueState `json:"state"`
 }
 
 type GithubIssueCreate struct {
-	Title     string   `json:"title"`
-	Body      string   `json:"body"`
-	Assignees []string `json:"assignees"`
+	Title     string       `json:"title"`
+	Body      string       `json:"body"`
+	Assignees []GithubUser `json:"assignees"`
 }
 
 type GithubIssueUpdate struct {
-	Title     string   `json:"title"`
-	Body      string   `json:"body"`
-	Assignees []string `json:"assignees"`
+	Title     string       `json:"title"`
+	Body      string       `json:"body"`
+	Assignees []GithubUser `json:"assignees"`
 }
 
 type GithubPullRequest struct {
-	ID        int                    `json:"id"`
+	ID        int                    `json:"number"`
 	State     GithubPullRequestState `json:"state"`
-	URL       string                 `json:"url"`
+	URL       string                 `json:"html_url"`
 	CreatedAt time.Time              `json:"created_at"`
-	ClosedAt  time.Time              `json:"closed_at"`
-	CreatedBy string                 `json:"created_by"`          // github username
-	ClosedBy  string                 `json:"closed_by"`           // github username
-	Assignees []string               `json:"assignees"`           // github usernames
-	Reviewers []string               `json:"requested_reviewers"` // github usernames
+	ClosedAt  *time.Time             `json:"closed_at"`
+	CreatedBy GithubUser             `json:"user"`
+	ClosedBy  *GithubUser            `json:"closed_by"`
+	Assignees []GithubUser           `json:"assignees"`
+	Reviewers []GithubUser           `json:"requested_reviewers"`
 }

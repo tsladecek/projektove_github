@@ -356,7 +356,7 @@ func TestSynchronize(t *testing.T) {
 				{repo: "team/repo", issue: GithubIssueCreate{
 					Title:     "Assigned task",
 					Body:      "GitHub Repo: team/repo",
-					Assignees: []string{"tomas"},
+					Assignees: []GithubUser{{Login: "tomas"}},
 				}},
 			},
 			wantCloses: nil,

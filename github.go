@@ -1,58 +1,120 @@
 package projektove
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
+const defaultGithubURL = "https://api.github.com"
+
 type GithubAPI struct {
-	client *http.Client
-	token  string
+	client  *Client
+	baseURL string
+	token   string
 }
 
-func NewGithubAPI(baseURL, token string, client *http.Client) (Github, error) {
+func NewGithubAPI(baseURL, token string, client *Client) (Github, error) {
+	if client == nil {
+		return nil, fmt.Errorf("no http client provided")
+	}
+	if baseURL == "" {
+		baseURL = defaultGithubURL
+	}
 	return GithubAPI{
-		token:  token,
-		client: client,
+		baseURL: baseURL,
+		token:   token,
+		client:  client,
 	}, nil
 }
 
-//	curl -L \
-//	  -H "Accept: application/vnd.github+json" \
-//	  -H "Authorization: Bearer <YOUR-TOKEN>" \
-//	  -H "X-GitHub-Api-Version: 2026-03-10" \
-//	  https://api.github.com/repos/OWNER/REPO/issues
-func (p GithubAPI) ListIssues(ctx context.Context, repository string) ([]GithubIssue, error) {
-	return nil, nil
+func (g GithubAPI) setHeaders(req *http.Request) {
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Authorization", "Bearer "+g.token)
+	req.Header.Set("X-GitHub-Api-Version", "2026-03-10")
 }
 
-//	curl -L \
-//	  -X POST \
-//	  -H "Accept: application/vnd.github+json" \
-//	  -H "Authorization: Bearer <YOUR-TOKEN>" \
-//	  -H "X-GitHub-Api-Version: 2026-03-10" \
-//	  https://api.github.com/repos/OWNER/REPO/issues \
-//	  -d '{"title":"Found a bug","body":"I'\''m having a problem with this.","assignees":["octocat"],"milestone":1,"labels":["bug"]}'
-func (p GithubAPI) CreateIssue(ctx context.Context, repository string, issue GithubIssueCreate) (GithubIssue, error) {
-	return GithubIssue{}, nil
+func (g GithubAPI) repoURL(repository, endpoint string) string {
+	return g.baseURL + "/repos/" + repository + "/" + endpoint
 }
 
-//	curl -L \
-//	  -X PATCH \
-//	  -H "Accept: application/vnd.github+json" \
-//	  -H "Authorization: Bearer <YOUR-TOKEN>" \
-//	  -H "X-GitHub-Api-Version: 2026-03-10" \
-//	  https://api.github.com/repos/OWNER/REPO/issues/ISSUE_NUMBER \
-//	  -d '{"title":"Found a bug","body":"I'\''m having a problem with this.","assignees":["octocat"],"milestone":1,"state":"open","labels":["bug"]}'
-func (p GithubAPI) UpdateIssue(ctx context.Context, repository string, id int, issue GithubIssueUpdate) error {
+func (g GithubAPI) ListIssues(ctx context.Context, repository string) ([]GithubIssue, error) {
+	u := g.repoURL(repository, "issues")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create list issues request: %w", err)
+	}
+	g.setHeaders(req)
+
+	var issues []GithubIssue
+	if err := g.client.DoRaw(req, &issues); err != nil {
+		return nil, fmt.Errorf("list issues for %s: %w", repository, err)
+	}
+
+	return issues, nil
+}
+
+func (g GithubAPI) CreateIssue(ctx context.Context, repository string, issue GithubIssueCreate) (GithubIssue, error) {
+	u := g.repoURL(repository, "issues")
+
+	data, err := json.Marshal(issue)
+	if err != nil {
+		return GithubIssue{}, fmt.Errorf("marshal create body: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(data))
+	if err != nil {
+		return GithubIssue{}, fmt.Errorf("create create issue request: %w", err)
+	}
+	g.setHeaders(req)
+	req.Header.Set("Content-Type", "application/json")
+
+	var created GithubIssue
+	if err := g.client.DoRaw(req, &created); err != nil {
+		return GithubIssue{}, fmt.Errorf("create issue in %s: %w", repository, err)
+	}
+
+	return created, nil
+}
+
+func (g GithubAPI) UpdateIssue(ctx context.Context, repository string, id int, issue GithubIssueUpdate) error {
+	u := g.repoURL(repository, fmt.Sprintf("issues/%d", id))
+
+	data, err := json.Marshal(issue)
+	if err != nil {
+		return fmt.Errorf("marshal update body: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, u, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("create update issue request: %w", err)
+	}
+	g.setHeaders(req)
+	req.Header.Set("Content-Type", "application/json")
+
+	if err := g.client.DoRaw(req, nil); err != nil {
+		return fmt.Errorf("update issue #%d in %s: %w", id, repository, err)
+	}
+
 	return nil
 }
 
-//	curl -L \
-//	  -H "Accept: application/vnd.github+json" \
-//	  -H "Authorization: Bearer <YOUR-TOKEN>" \
-//	  -H "X-GitHub-Api-Version: 2026-03-10" \
-//	  https://api.github.com/repos/OWNER/REPO/pulls/PULL_NUMBER
-func (p GithubAPI) GetPullRequest(ctx context.Context, repository string, id int) (GithubPullRequest, error) {
-	return GithubPullRequest{}, nil
+func (g GithubAPI) GetPullRequest(ctx context.Context, repository string, id int) (GithubPullRequest, error) {
+	u := g.repoURL(repository, fmt.Sprintf("pulls/%d", id))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return GithubPullRequest{}, fmt.Errorf("create get pull request: %w", err)
+	}
+	g.setHeaders(req)
+
+	var pr GithubPullRequest
+	if err := g.client.DoRaw(req, &pr); err != nil {
+		return GithubPullRequest{}, fmt.Errorf("get pull request #%d from %s: %w", id, repository, err)
+	}
+
+	return pr, nil
 }

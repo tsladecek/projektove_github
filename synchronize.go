@@ -82,9 +82,9 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 		case m.Github == nil: // create
 			plan["create:"+key] = func() error {
 				assignee := userIdToUsername[m.Projektove.AssignedTo.ID]
-				var assignees []string
+				var assignees []GithubUser
 				if assignee != "" {
-					assignees = []string{assignee}
+					assignees = []GithubUser{{Login: assignee}}
 				}
 
 				body := GithubIssueCreate{
