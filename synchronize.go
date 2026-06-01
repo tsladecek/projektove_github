@@ -65,8 +65,6 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 		githubIssues[repo] = issues
 	}
 
-	fmt.Printf("%v\n", githubIssues)
-
 	matched := MatchIssues(projectoveIssues, githubIssues)
 
 	plan := make(map[string]func() error)

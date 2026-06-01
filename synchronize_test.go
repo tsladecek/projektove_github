@@ -3,6 +3,7 @@ package projektove
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"testing"
 
@@ -243,7 +244,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          20,
 					Subject:     "Done task",
-					Description: "GitHub Repo: owner/repo\nGitHub Issue ID: 5",
+					Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 5",
 					Status:      ProjektoveIssueStatus{IsClosed: false},
 				},
 			},
@@ -263,7 +264,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          30,
 					Subject:     "WIP",
-					Description: "GitHub Repo: owner/repo\nhttps://github.com/owner/repo/issues/7",
+					Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 7",
 					Status:      ProjektoveIssueStatus{IsClosed: false},
 				},
 			},
@@ -281,7 +282,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          40,
 					Subject:     "Already done",
-					Description: "GitHub Repo: owner/repo\nhttps://github.com/owner/repo/issues/9",
+					Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 9",
 					Status:      ProjektoveIssueStatus{IsClosed: true},
 				},
 			},
@@ -304,7 +305,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          101,
 					Subject:     "Old feature",
-					Description: "GitHub Repo: team/proj\nhttps://github.com/team/proj/issues/2",
+					Description: "GitHub Repository: team/proj\nGitHub Issue ID: 2",
 					Status:      ProjektoveIssueStatus{IsClosed: false},
 				},
 			},
@@ -316,12 +317,12 @@ func TestSynchronize(t *testing.T) {
 			wantCreates: []createCall{
 				{repo: "team/proj", issue: GithubIssueCreate{
 					Title: "New feature",
-					Body:  "GitHub Repository: team/proj\n\nBrand new",
+					Body:  "GitHub Repository: team/proj\n\nBrand new\n\nhttps://app.projektove.cz//tasks/100",
 				}},
 			},
 			wantUpdate: []updateCall{
 				{issueID: 101, update: ProjektoveIssueUpdate{StatusID: int(ProjektoveStatusClosed)}},
-				{issueID: 100, update: ProjektoveIssueUpdate{Description: "GitHub Repository: team/proj\n\nBrand new\n\nGitHub Issue URL: \n\nGitHub Issue ID: "}},
+				{issueID: 100, update: ProjektoveIssueUpdate{Description: "GitHub Repository: team/proj\n\nBrand new\n\nGitHub Issue URL: \n\nGitHub Issue ID: 999"}},
 			},
 		},
 		{
@@ -330,7 +331,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          200,
 					Subject:     "Assigned task",
-					Description: "GitHub Repo: team/repo",
+					Description: "GitHub Repository: team/repo",
 					AssignedTo:  &ProjektoveUser{ID: 1, Name: "proje"},
 				},
 			},
@@ -338,12 +339,12 @@ func TestSynchronize(t *testing.T) {
 			wantCreates: []createCall{
 				{repo: "team/repo", issue: GithubIssueCreate{
 					Title:     "Assigned task",
-					Body:      "GitHub Repo: team/repo",
+					Body:      "GitHub Repository: team/repo\n\nhttps://app.projektove.cz//tasks/200",
 					Assignees: []string{"login"},
 				}},
 			},
 			wantUpdate: []updateCall{
-				{issueID: 200, update: ProjektoveIssueUpdate{Description: "GitHub Repo: team/repo\n\nGitHub Issue URL: \n\nGitHub Issue ID: "}},
+				{issueID: 200, update: ProjektoveIssueUpdate{Description: "GitHub Repository: team/repo\n\nGitHub Issue URL: \n\nGitHub Issue ID: 999"}},
 			},
 		},
 		{
@@ -394,6 +395,19 @@ func TestSynchronize(t *testing.T) {
 			}
 
 			err := Synchronize(ctx, mockProj, mockGH, tt.users, false)
+
+			sort.Slice(gotCreates, func(i, j int) bool {
+				return gotCreates[i].repo < gotCreates[j].repo
+			})
+			sort.Slice(gotUpdates, func(i, j int) bool {
+				return gotUpdates[i].issueID < gotUpdates[j].issueID
+			})
+			sort.Slice(tt.wantCreates, func(i, j int) bool {
+				return tt.wantCreates[i].repo < tt.wantCreates[j].repo
+			})
+			sort.Slice(tt.wantUpdate, func(i, j int) bool {
+				return tt.wantUpdate[i].issueID < tt.wantUpdate[j].issueID
+			})
 
 			if tt.wantErr {
 				assert.Error(t, err)

@@ -11,11 +11,16 @@ import (
 type ProjektoveStatus int
 
 const (
-	ProjektoveStatusNew ProjektoveStatus = iota
+	ProjektoveStatusNew ProjektoveStatus = iota + 1
 	ProjektoveStatusInProgress
-	ProjektoveStatusResolved
-	ProjektoveStatusFeedback
+	ProjektoveStatusWaitingOurSide
+	ProjektoveStatusWaitingClientSide
+	ProjektoveStatusPlanned
+	ProjektoveStatusSolved
+	ProjektoveStatusFuture
 	ProjektoveStatusClosed
+	ProjektoveStatusRejected
+	ProjektoveStatusWaitingDistributorSide
 )
 
 type ProjektoveProject struct {
@@ -62,7 +67,7 @@ var ghIssueIDRegex = regexp.MustCompile(`GitHub Issue ID:\s*([0-9]+)`)
 
 // determines whether this issue should be synced with github repository
 // empty string means no
-var ghRepoRegex = regexp.MustCompile(`GitHub Repository:\s*([\w-]+/[\w-]+)`)
+var ghRepoRegex = regexp.MustCompile(`GitHub (?:Repository|Repo):\s*([\w-]+/[\w-]+)`)
 
 func (p ProjektoveIssue) GithubRepository() string {
 	matches := ghRepoRegex.FindStringSubmatch(p.Description)
