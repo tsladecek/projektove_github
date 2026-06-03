@@ -379,6 +379,24 @@ func TestSynchronize(t *testing.T) {
 				{issueID: 2, update: GithubIssueUpdate{Body: IssueClosedInProjektove}},
 			},
 		},
+		{
+			name: "issue closed in projektove but not in github, but github issue contains the string in description",
+			projektoveIssues: []ProjektoveIssue{
+				{
+					ID:          200,
+					Subject:     "Assigned task",
+					Description: fmt.Sprintf("%s: team/proj\n\n%s: 2", PrefixGithubRepository, PrefixGithubIssueID),
+					AssignedTo:  &ProjektoveUser{ID: 1, Name: "proje"},
+					Status:      ProjektoveIssueStatus{ID: int(ProjektoveStatusClosed), IsClosed: true},
+				},
+			},
+			githubIssues: map[string][]GithubIssue{
+				"team/proj": {
+					{ID: 2, Title: "Old feature", State: GithubIssueStateOpen, Body: "body" + IssueClosedInProjektove},
+				},
+			},
+			users: Users{{Github: GithubUser{ID: 736, Login: "login"}, Projektove: ProjektoveUser{ID: 1, Name: "proje"}}},
+		},
 	}
 
 	for _, tt := range tests {

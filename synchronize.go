@@ -3,6 +3,8 @@ package projektove
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 	"sync"
 )
 
@@ -108,9 +110,9 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 				return nil
 			}
 
-			// we do not want to close the issue, since work might have begun
-		case m.Projektove.Status.IsClosed && m.Github.State != GithubIssueStateClosed:
+		case m.Projektove.Status.IsClosed && m.Github.State != GithubIssueStateClosed && !strings.Contains(m.Github.Body, IssueClosedInProjektove):
 			plan["close github: "+key] = func() error {
+				// we do not want to close the issue, since work might have begun
 				if err := github.UpdateIssue(ctx, repo, m.Github.ID, GithubIssueUpdate{Body: m.Github.Body + IssueClosedInProjektove}); err != nil {
 					return fmt.Errorf("when closing github issue %d: %w", m.Github.ID, err)
 				}
@@ -118,6 +120,11 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 				return nil
 			}
 		}
+	}
+
+	if len(plan) == 0 {
+		slog.Info("Nothing to sync. If this is not expected, ensure that the repository key is correctly typed.", "Repository Key", PrefixGithubRepository)
+		return nil
 	}
 
 	// Phase 2: Concurrent Execution
@@ -130,17 +137,17 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 			defer wg.Done()
 
 			mu.Lock()
-			fmt.Printf("[START] %s\n", k)
+			slog.Info("[START]", "key", k)
 			mu.Unlock()
 
 			if !dryRun {
 				if err := a(); err != nil {
 					mu.Lock()
-					fmt.Printf("[FAIL] %s: %v\n", k, err)
+					slog.Error("[FAIL]", "key", k, "err", err)
 					mu.Unlock()
 				} else {
 					mu.Lock()
-					fmt.Printf("[SUCCESS] %s\n", k)
+					slog.Info("[SUCCESS]", "key", k)
 					mu.Unlock()
 				}
 			}
