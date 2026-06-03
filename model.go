@@ -158,9 +158,9 @@ type GithubIssueCreate struct {
 }
 
 type GithubIssueUpdate struct {
-	Title     string       `json:"title"`
-	Body      string       `json:"body"`
-	Assignees []GithubUser `json:"assignees"`
+	Title string           `json:"title,omitempty"`
+	Body  string           `json:"body,omitempty"`
+	State GithubIssueState `json:"state,omitempty"`
 }
 
 type GithubPullRequest struct {

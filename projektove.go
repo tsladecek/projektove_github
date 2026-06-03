@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -46,8 +47,12 @@ func NewProjektoveAPI(baseURL, token string, client *Client) (Projektove, error)
 	}, nil
 }
 
-func (p ProjektoveAPI) ListIssues(ctx context.Context) ([]ProjektoveIssue, error) {
+func (p ProjektoveAPI) listIssues(ctx context.Context, status *ProjektoveStatus) ([]ProjektoveIssue, error) {
 	u := p.baseURL.JoinPath("issues.json").String()
+
+	if status != nil {
+		u = u + "?status_id=" + strconv.Itoa(int(*status))
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
@@ -63,6 +68,19 @@ func (p ProjektoveAPI) ListIssues(ctx context.Context) ([]ProjektoveIssue, error
 	resp.fixDescriptions()
 
 	return resp.Issues, nil
+}
+
+func (p ProjektoveAPI) ListIssues(ctx context.Context) ([]ProjektoveIssue, error) {
+	open, err := p.listIssues(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("when listing open projektove issues: %w", err)
+	}
+	closed, err := p.listIssues(ctx, new(ProjektoveStatusClosed))
+	if err != nil {
+		return nil, fmt.Errorf("when listing closed projektove issues: %w", err)
+	}
+
+	return append(open, closed...), nil
 }
 
 func (p ProjektoveAPI) UpdateIssue(ctx context.Context, issueID int, obj ProjektoveIssueUpdate) error {

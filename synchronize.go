@@ -11,6 +11,10 @@ type ProjektoveGithub struct {
 	Github     *GithubIssue // nil if does not exist
 }
 
+const (
+	IssueClosedInProjektove = "\n\nIssue has been closed in Projektove"
+)
+
 // returns all projektove issues that should be synchronized with github and
 // corresponding github issues (if available)
 func MatchIssues(projektove []ProjektoveIssue, github map[string][]GithubIssue) []ProjektoveGithub {
@@ -95,12 +99,22 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 			}
 
 		case m.Github.State == GithubIssueStateClosed && !m.Projektove.Status.IsClosed: // close
-			plan["close: "+key] = func() error {
+			plan["close projektove: "+key] = func() error {
 				if err := projektove.UpdateIssue(ctx, m.Projektove.ID, ProjektoveIssueUpdate{
 					StatusID: int(ProjektoveStatusClosed),
 				}); err != nil {
 					return fmt.Errorf("when closing issue #%d in projektove: %w", m.Projektove.ID, err)
 				}
+				return nil
+			}
+
+			// we do not want to close the issue, since work might have begun
+		case m.Projektove.Status.IsClosed && m.Github.State != GithubIssueStateClosed:
+			plan["close github: "+key] = func() error {
+				if err := github.UpdateIssue(ctx, repo, m.Github.ID, GithubIssueUpdate{Body: m.Github.Body + IssueClosedInProjektove}); err != nil {
+					return fmt.Errorf("when closing github issue %d: %w", m.Github.ID, err)
+				}
+
 				return nil
 			}
 		}

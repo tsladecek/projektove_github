@@ -186,37 +186,43 @@ type createCall struct {
 	issue GithubIssueCreate
 }
 
-type updateCall struct {
+type updateCallProjektove struct {
 	issueID int
 	update  ProjektoveIssueUpdate
+}
+
+type updateCallGithub struct {
+	issueID int
+	update  GithubIssueUpdate
 }
 
 func TestSynchronize(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name             string
-		projektoveIssues []ProjektoveIssue
-		githubIssues     map[string][]GithubIssue
-		users            Users
-		listIssuesErr    bool
-		wantCreates      []createCall
-		wantUpdate       []updateCall
-		wantErr          bool
+		name                 string
+		projektoveIssues     []ProjektoveIssue
+		githubIssues         map[string][]GithubIssue
+		users                Users
+		listIssuesErr        bool
+		wantCreates          []createCall
+		wantUpdateProjektove []updateCallProjektove
+		wantUpdateGithub     []updateCallGithub
+		wantErr              bool
 	}{
 		{
-			name:             "no issues",
-			projektoveIssues: nil,
-			wantCreates:      nil,
-			wantUpdate:       nil,
+			name:                 "no issues",
+			projektoveIssues:     nil,
+			wantCreates:          nil,
+			wantUpdateProjektove: nil,
 		},
 		{
 			name: "no repo marker",
 			projektoveIssues: []ProjektoveIssue{
 				{ID: 1, Subject: "normal task", Description: "nothing to sync"},
 			},
-			wantCreates: nil,
-			wantUpdate:  nil,
+			wantCreates:          nil,
+			wantUpdateProjektove: nil,
 		},
 		{
 			name: "create new github issue",
@@ -234,7 +240,7 @@ func TestSynchronize(t *testing.T) {
 					Body:  "GitHub Repository: owner/repo\n\nNeed login page\n\nhttps://app.projektove.cz//tasks/10",
 				}},
 			},
-			wantUpdate: []updateCall{
+			wantUpdateProjektove: []updateCallProjektove{
 				{issueID: 10, update: ProjektoveIssueUpdate{Description: "GitHub Repository: owner/repo\n\nNeed login page\n\nGitHub Issue URL: \n\nGitHub Issue ID: 999"}},
 			},
 		},
@@ -254,7 +260,7 @@ func TestSynchronize(t *testing.T) {
 				},
 			},
 			wantCreates: nil,
-			wantUpdate: []updateCall{
+			wantUpdateProjektove: []updateCallProjektove{
 				{issueID: 20, update: ProjektoveIssueUpdate{StatusID: int(ProjektoveStatusClosed)}},
 			},
 		},
@@ -273,8 +279,8 @@ func TestSynchronize(t *testing.T) {
 					{ID: 7, Title: "WIP", State: GithubIssueStateOpen},
 				},
 			},
-			wantCreates: nil,
-			wantUpdate:  nil,
+			wantCreates:          nil,
+			wantUpdateProjektove: nil,
 		},
 		{
 			name: "both closed does nothing",
@@ -291,8 +297,8 @@ func TestSynchronize(t *testing.T) {
 					{ID: 9, Title: "Already done", State: GithubIssueStateClosed},
 				},
 			},
-			wantCreates: nil,
-			wantUpdate:  nil,
+			wantCreates:          nil,
+			wantUpdateProjektove: nil,
 		},
 		{
 			name: "mixed create and close",
@@ -320,7 +326,7 @@ func TestSynchronize(t *testing.T) {
 					Body:  "GitHub Repository: team/proj\n\nBrand new\n\nhttps://app.projektove.cz//tasks/100",
 				}},
 			},
-			wantUpdate: []updateCall{
+			wantUpdateProjektove: []updateCallProjektove{
 				{issueID: 101, update: ProjektoveIssueUpdate{StatusID: int(ProjektoveStatusClosed)}},
 				{issueID: 100, update: ProjektoveIssueUpdate{Description: "GitHub Repository: team/proj\n\nBrand new\n\nGitHub Issue URL: \n\nGitHub Issue ID: 999"}},
 			},
@@ -343,7 +349,7 @@ func TestSynchronize(t *testing.T) {
 					Assignees: []string{"login"},
 				}},
 			},
-			wantUpdate: []updateCall{
+			wantUpdateProjektove: []updateCallProjektove{
 				{issueID: 200, update: ProjektoveIssueUpdate{Description: "GitHub Repository: team/repo\n\nGitHub Issue URL: \n\nGitHub Issue ID: 999"}},
 			},
 		},
@@ -352,13 +358,35 @@ func TestSynchronize(t *testing.T) {
 			listIssuesErr: true,
 			wantErr:       true,
 		},
+		{
+			name: "issue closed in projektove but not in github",
+			projektoveIssues: []ProjektoveIssue{
+				{
+					ID:          200,
+					Subject:     "Assigned task",
+					Description: "GitHub Repository: team/proj\n\nGitHub Issue ID: 2",
+					AssignedTo:  &ProjektoveUser{ID: 1, Name: "proje"},
+					Status:      ProjektoveIssueStatus{ID: int(ProjektoveStatusClosed), IsClosed: true},
+				},
+			},
+			githubIssues: map[string][]GithubIssue{
+				"team/proj": {
+					{ID: 2, Title: "Old feature", State: GithubIssueStateOpen},
+				},
+			},
+			users: Users{{Github: GithubUser{ID: 736, Login: "login"}, Projektove: ProjektoveUser{ID: 1, Name: "proje"}}},
+			wantUpdateGithub: []updateCallGithub{
+				{issueID: 2, update: GithubIssueUpdate{Body: IssueClosedInProjektove}},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var mu sync.Mutex
 			var gotCreates []createCall
-			var gotUpdates []updateCall
+			var gotUpdatesProjektove []updateCallProjektove
+			var gotUpdatesGithub []updateCallGithub
 
 			mockProj := &MockProjektove{}
 			mockGH := &MockGithub{}
@@ -386,10 +414,16 @@ func TestSynchronize(t *testing.T) {
 				mu.Unlock()
 				return GithubIssue{ID: 999, Title: issue.Title, State: GithubIssueStateOpen}, nil
 			}
+			mockGH.UpdateIssueFunc = func(ctx context.Context, repository string, id int, issue GithubIssueUpdate) error {
+				mu.Lock()
+				gotUpdatesGithub = append(gotUpdatesGithub, updateCallGithub{issueID: id, update: issue})
+				mu.Unlock()
+				return nil
+			}
 
 			mockProj.UpdateIssueFunc = func(ctx context.Context, issueID int, obj ProjektoveIssueUpdate) error {
 				mu.Lock()
-				gotUpdates = append(gotUpdates, updateCall{issueID: issueID, update: obj})
+				gotUpdatesProjektove = append(gotUpdatesProjektove, updateCallProjektove{issueID: issueID, update: obj})
 				mu.Unlock()
 				return nil
 			}
@@ -399,14 +433,20 @@ func TestSynchronize(t *testing.T) {
 			sort.Slice(gotCreates, func(i, j int) bool {
 				return gotCreates[i].repo < gotCreates[j].repo
 			})
-			sort.Slice(gotUpdates, func(i, j int) bool {
-				return gotUpdates[i].issueID < gotUpdates[j].issueID
+			sort.Slice(gotUpdatesProjektove, func(i, j int) bool {
+				return gotUpdatesProjektove[i].issueID < gotUpdatesProjektove[j].issueID
+			})
+			sort.Slice(gotUpdatesGithub, func(i, j int) bool {
+				return gotUpdatesGithub[i].issueID < gotUpdatesGithub[j].issueID
 			})
 			sort.Slice(tt.wantCreates, func(i, j int) bool {
 				return tt.wantCreates[i].repo < tt.wantCreates[j].repo
 			})
-			sort.Slice(tt.wantUpdate, func(i, j int) bool {
-				return tt.wantUpdate[i].issueID < tt.wantUpdate[j].issueID
+			sort.Slice(tt.wantUpdateProjektove, func(i, j int) bool {
+				return tt.wantUpdateProjektove[i].issueID < tt.wantUpdateProjektove[j].issueID
+			})
+			sort.Slice(tt.wantUpdateGithub, func(i, j int) bool {
+				return tt.wantUpdateGithub[i].issueID < tt.wantUpdateGithub[j].issueID
 			})
 
 			if tt.wantErr {
@@ -431,13 +471,23 @@ func TestSynchronize(t *testing.T) {
 				}
 			}
 
-			if tt.wantUpdate == nil {
-				assert.Empty(t, gotUpdates, "expected no close calls")
+			if tt.wantUpdateProjektove == nil {
+				assert.Empty(t, gotUpdatesProjektove, "expected no close calls")
 			} else {
-				require.Len(t, gotUpdates, len(tt.wantUpdate))
-				for i, w := range tt.wantUpdate {
-					assert.Equal(t, w.issueID, gotUpdates[i].issueID, "close issue ID mismatch at %d", i)
-					assert.Equal(t, w.update, gotUpdates[i].update, "close update mismatch at %d", i)
+				require.Len(t, gotUpdatesProjektove, len(tt.wantUpdateProjektove))
+				for i, w := range tt.wantUpdateProjektove {
+					assert.Equal(t, w.issueID, gotUpdatesProjektove[i].issueID, "close issue ID mismatch at %d", i)
+					assert.Equal(t, w.update, gotUpdatesProjektove[i].update, "close update mismatch at %d", i)
+				}
+			}
+
+			if tt.wantUpdateGithub == nil {
+				assert.Empty(t, gotUpdatesGithub, "expected no update calls")
+			} else {
+				require.Len(t, gotUpdatesGithub, len(tt.wantUpdateGithub))
+				for i, w := range tt.wantUpdateGithub {
+					assert.Equal(t, w.issueID, gotUpdatesGithub[i].issueID, "update issue ID mismatch at %d", i)
+					assert.Equal(t, w.update, gotUpdatesGithub[i].update, "update mismatch at %d", i)
 				}
 			}
 		})
