@@ -39,7 +39,7 @@ func TestMatchIssues(t *testing.T) {
 				{
 					ID:          42,
 					Subject:     "Implement login",
-					Description: "GitHub Repository: owner/my-repo\n\nNeed to add login page",
+					Description: fmt.Sprintf("%s: owner/my-repo\n\nNeed to add login page", PrefixGithubRepository),
 				},
 			},
 			github: nil,
@@ -48,7 +48,7 @@ func TestMatchIssues(t *testing.T) {
 					Projektove: ProjektoveIssue{
 						ID:          42,
 						Subject:     "Implement login",
-						Description: "GitHub Repository: owner/my-repo\n\nNeed to add login page",
+						Description: fmt.Sprintf("%s: owner/my-repo\n\nNeed to add login page", PrefixGithubRepository),
 					},
 					Github: nil,
 				},
@@ -60,7 +60,7 @@ func TestMatchIssues(t *testing.T) {
 				{
 					ID:          10,
 					Subject:     "Fix bug",
-					Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 99\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug",
+					Description: fmt.Sprintf("%s: owner/repo\n%s: 99\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug", PrefixGithubRepository, PrefixGithubIssueID),
 					AssignedTo:  &ProjektoveUser{ID: 1, Name: "tester"},
 				},
 			},
@@ -75,7 +75,7 @@ func TestMatchIssues(t *testing.T) {
 					Projektove: ProjektoveIssue{
 						ID:          10,
 						Subject:     "Fix bug",
-						Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 99\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug",
+						Description: fmt.Sprintf("%s: owner/repo\n%s: 99\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug", PrefixGithubRepository, PrefixGithubIssueID),
 						AssignedTo:  &ProjektoveUser{ID: 1, Name: "tester"},
 					},
 					Github: &GithubIssue{
@@ -92,7 +92,7 @@ func TestMatchIssues(t *testing.T) {
 				{
 					ID:          5,
 					Subject:     "Missing issue",
-					Description: "GitHub Repository: org/other\nhttps://github.com/org/other/issues/999",
+					Description: fmt.Sprintf("%s: org/other\nhttps://github.com/org/other/issues/999", PrefixGithubRepository),
 				},
 			},
 			github: map[string][]GithubIssue{
@@ -105,7 +105,7 @@ func TestMatchIssues(t *testing.T) {
 					Projektove: ProjektoveIssue{
 						ID:          5,
 						Subject:     "Missing issue",
-						Description: "GitHub Repository: org/other\nhttps://github.com/org/other/issues/999",
+						Description: fmt.Sprintf("%s: org/other\nhttps://github.com/org/other/issues/999", PrefixGithubRepository),
 					},
 					Github: nil,
 				},
@@ -117,12 +117,12 @@ func TestMatchIssues(t *testing.T) {
 				{
 					ID:          1,
 					Subject:     "A",
-					Description: "GitHub Repository: a/repo\nGitHub Issue ID: 10",
+					Description: fmt.Sprintf("%s: a/repo\n%s: 10", PrefixGithubRepository, PrefixGithubIssueID),
 				},
 				{
 					ID:          2,
 					Subject:     "B",
-					Description: "GitHub Repository: b/repo\nhttps://github.com/b/repo/issues/20",
+					Description: fmt.Sprintf("%s: b/repo\nhttps://github.com/b/repo/issues/20", PrefixGithubRepository),
 				},
 				{
 					ID:          3,
@@ -138,11 +138,11 @@ func TestMatchIssues(t *testing.T) {
 			},
 			want: []ProjektoveGithub{
 				{
-					Projektove: ProjektoveIssue{ID: 1, Subject: "A", Description: "GitHub Repository: a/repo\nGitHub Issue ID: 10"},
+					Projektove: ProjektoveIssue{ID: 1, Subject: "A", Description: fmt.Sprintf("%s: a/repo\n%s: 10", PrefixGithubRepository, PrefixGithubIssueID)},
 					Github:     &GithubIssue{ID: 10, Title: "A", State: GithubIssueStateOpen},
 				},
 				{
-					Projektove: ProjektoveIssue{ID: 2, Subject: "B", Description: "GitHub Repository: b/repo\nhttps://github.com/b/repo/issues/20"},
+					Projektove: ProjektoveIssue{ID: 2, Subject: "B", Description: fmt.Sprintf("%s: b/repo\nhttps://github.com/b/repo/issues/20", PrefixGithubRepository)},
 					Github:     nil,
 				},
 			},
@@ -230,18 +230,18 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          10,
 					Subject:     "Implement login",
-					Description: "GitHub Repository: owner/repo\n\nNeed login page",
+					Description: fmt.Sprintf("%s: owner/repo\n\nNeed login page", PrefixGithubRepository),
 				},
 			},
 			githubIssues: nil,
 			wantCreates: []createCall{
 				{repo: "owner/repo", issue: GithubIssueCreate{
 					Title: "Implement login",
-					Body:  "GitHub Repository: owner/repo\n\nNeed login page\n\nhttps://app.projektove.cz//tasks/10",
+					Body:  fmt.Sprintf("%s: owner/repo\n\nNeed login page\n\nhttps://app.projektove.cz//tasks/10", PrefixGithubRepository),
 				}},
 			},
 			wantUpdateProjektove: []updateCallProjektove{
-				{issueID: 10, update: ProjektoveIssueUpdate{Description: "GitHub Repository: owner/repo\n\nNeed login page\n\nGitHub Issue URL: \n\nGitHub Issue ID: 999"}},
+				{issueID: 10, update: ProjektoveIssueUpdate{Description: fmt.Sprintf("%s: owner/repo\n\nNeed login page\n\n%s: \n\n%s: 999", PrefixGithubRepository, PrefixGithubIssueURL, PrefixGithubIssueID)}},
 			},
 		},
 		{
@@ -250,7 +250,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          20,
 					Subject:     "Done task",
-					Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 5",
+					Description: fmt.Sprintf("%s: owner/repo\n%s: 5", PrefixGithubRepository, PrefixGithubIssueID),
 					Status:      ProjektoveIssueStatus{IsClosed: false},
 				},
 			},
@@ -270,7 +270,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          30,
 					Subject:     "WIP",
-					Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 7",
+					Description: fmt.Sprintf("%s: owner/repo\n%s: 7", PrefixGithubRepository, PrefixGithubIssueID),
 					Status:      ProjektoveIssueStatus{IsClosed: false},
 				},
 			},
@@ -288,7 +288,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          40,
 					Subject:     "Already done",
-					Description: "GitHub Repository: owner/repo\nGitHub Issue ID: 9",
+					Description: fmt.Sprintf("%s: owner/repo\n%s: 9", PrefixGithubRepository, PrefixGithubIssueID),
 					Status:      ProjektoveIssueStatus{IsClosed: true},
 				},
 			},
@@ -306,12 +306,12 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          100,
 					Subject:     "New feature",
-					Description: "GitHub Repository: team/proj\n\nBrand new",
+					Description: fmt.Sprintf("%s: team/proj\n\nBrand new", PrefixGithubRepository),
 				},
 				{
 					ID:          101,
 					Subject:     "Old feature",
-					Description: "GitHub Repository: team/proj\nGitHub Issue ID: 2",
+					Description: fmt.Sprintf("%s: team/proj\n%s: 2", PrefixGithubRepository, PrefixGithubIssueID),
 					Status:      ProjektoveIssueStatus{IsClosed: false},
 				},
 			},
@@ -323,12 +323,12 @@ func TestSynchronize(t *testing.T) {
 			wantCreates: []createCall{
 				{repo: "team/proj", issue: GithubIssueCreate{
 					Title: "New feature",
-					Body:  "GitHub Repository: team/proj\n\nBrand new\n\nhttps://app.projektove.cz//tasks/100",
+					Body:  fmt.Sprintf("%s: team/proj\n\nBrand new\n\nhttps://app.projektove.cz//tasks/100", PrefixGithubRepository),
 				}},
 			},
 			wantUpdateProjektove: []updateCallProjektove{
 				{issueID: 101, update: ProjektoveIssueUpdate{StatusID: int(ProjektoveStatusClosed)}},
-				{issueID: 100, update: ProjektoveIssueUpdate{Description: "GitHub Repository: team/proj\n\nBrand new\n\nGitHub Issue URL: \n\nGitHub Issue ID: 999"}},
+				{issueID: 100, update: ProjektoveIssueUpdate{Description: fmt.Sprintf("%s: team/proj\n\nBrand new\n\n%s: \n\n%s: 999", PrefixGithubRepository, PrefixGithubIssueURL, PrefixGithubIssueID)}},
 			},
 		},
 		{
@@ -337,7 +337,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          200,
 					Subject:     "Assigned task",
-					Description: "GitHub Repository: team/repo",
+					Description: fmt.Sprintf("%s: team/repo", PrefixGithubRepository),
 					AssignedTo:  &ProjektoveUser{ID: 1, Name: "proje"},
 				},
 			},
@@ -345,12 +345,12 @@ func TestSynchronize(t *testing.T) {
 			wantCreates: []createCall{
 				{repo: "team/repo", issue: GithubIssueCreate{
 					Title:     "Assigned task",
-					Body:      "GitHub Repository: team/repo\n\nhttps://app.projektove.cz//tasks/200",
+					Body:      fmt.Sprintf("%s: team/repo\n\nhttps://app.projektove.cz//tasks/200", PrefixGithubRepository),
 					Assignees: []string{"login"},
 				}},
 			},
 			wantUpdateProjektove: []updateCallProjektove{
-				{issueID: 200, update: ProjektoveIssueUpdate{Description: "GitHub Repository: team/repo\n\nGitHub Issue URL: \n\nGitHub Issue ID: 999"}},
+				{issueID: 200, update: ProjektoveIssueUpdate{Description: fmt.Sprintf("%s: team/repo\n\n%s: \n\n%s: 999", PrefixGithubRepository, PrefixGithubIssueURL, PrefixGithubIssueID)}},
 			},
 		},
 		{
@@ -364,7 +364,7 @@ func TestSynchronize(t *testing.T) {
 				{
 					ID:          200,
 					Subject:     "Assigned task",
-					Description: "GitHub Repository: team/proj\n\nGitHub Issue ID: 2",
+					Description: fmt.Sprintf("%s: team/proj\n\n%s: 2", PrefixGithubRepository, PrefixGithubIssueID),
 					AssignedTo:  &ProjektoveUser{ID: 1, Name: "proje"},
 					Status:      ProjektoveIssueStatus{ID: int(ProjektoveStatusClosed), IsClosed: true},
 				},

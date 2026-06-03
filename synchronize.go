@@ -46,14 +46,14 @@ func MatchIssues(projektove []ProjektoveIssue, github map[string][]GithubIssue) 
 
 func Synchronize(ctx context.Context, projektove Projektove, github Github, users Users, dryRun bool) error {
 	// fetch all issues from projektove
-	projectoveIssues, err := projektove.ListIssues(ctx)
+	projektoveIssues, err := projektove.ListIssues(ctx)
 	if err != nil {
 		return fmt.Errorf("when listing issues from projektove: %w", err)
 	}
 
 	// fetch all issues from github
 	repos := make(map[string]bool)
-	for _, p := range projectoveIssues {
+	for _, p := range projektoveIssues {
 		repo := p.GithubRepository()
 		if repo != "" {
 			repos[repo] = true
@@ -69,7 +69,7 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 		githubIssues[repo] = issues
 	}
 
-	matched := MatchIssues(projectoveIssues, githubIssues)
+	matched := MatchIssues(projektoveIssues, githubIssues)
 
 	plan := make(map[string]func() error)
 

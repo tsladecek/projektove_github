@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+const (
+	PrefixGithubIssueID    = "GitHub Issue ID"
+	PrefixGithubIssueURL   = "GitHub Issue URL"
+	PrefixGithubRepository = "GitHub Repository"
+)
+
 type ProjektoveStatus int
 
 const (
@@ -63,11 +69,11 @@ func (pi ProjektoveIssue) Link() string {
 }
 
 // regex to extract GitHub issue ID from the Projektove description
-var ghIssueIDRegex = regexp.MustCompile(`GitHub Issue ID:\s*([0-9]+)`)
+var ghIssueIDRegex = regexp.MustCompile(fmt.Sprintf(`%s:\s*([0-9]+)`, PrefixGithubIssueID))
 
 // determines whether this issue should be synced with github repository
 // empty string means no
-var ghRepoRegex = regexp.MustCompile(`GitHub (?:Repository|Repo):\s*([\w-]+/[\w-]+)`)
+var ghRepoRegex = regexp.MustCompile(fmt.Sprintf(`%s:\s*([\w-]+/[\w-]+)`, PrefixGithubRepository))
 
 func (p ProjektoveIssue) GithubRepository() string {
 	matches := ghRepoRegex.FindStringSubmatch(p.Description)
@@ -92,7 +98,7 @@ func (p ProjektoveIssue) GithubID() int {
 }
 
 func (p *ProjektoveIssue) AnnotateWithGithubIssue(g GithubIssue) {
-	p.Description = fmt.Sprintf("%s\n\nGitHub Issue URL: %s\n\nGitHub Issue ID: %d", p.Description, g.URL, g.ID)
+	p.Description = fmt.Sprintf("%s\n\n%s: %s\n\n%s: %d", p.Description, PrefixGithubIssueURL, g.URL, PrefixGithubIssueID, g.ID)
 }
 
 type ProjektoveIssueUpdate struct {
