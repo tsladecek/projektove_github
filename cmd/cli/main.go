@@ -22,7 +22,7 @@ func run() error {
 	projektoveToken := flag.String("projektoveToken", "", "Projektove API token (required)")
 	githubToken := flag.String("githubToken", "", "GitHub API token (required)")
 	githubURL := flag.String("githubURL", "https://api.github.com", "GitHub API base URL")
-	usersRaw := flag.String("users", "", `list of users in JSON format: [{"projektove": {"id": ..., "name": ...}, "github": {"id": ..., "login": ...}}]`)
+	usersRaw := flag.String("users", "", `list of users in JSON format: [{"projektove": {"id": <int>}, "github": {"login": "<string>"}}]`)
 	dryRun := flag.Bool("dryRun", false, "dry run exits before the requests are made")
 	flag.Parse()
 
@@ -33,7 +33,7 @@ func run() error {
 
 	users, err := parseUsers(*usersRaw)
 	if err != nil {
-		return fmt.Errorf("parse username map: %w", err)
+		return fmt.Errorf("parse users: %w", err)
 	}
 
 	client := projektove.NewClient()

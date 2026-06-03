@@ -61,7 +61,7 @@ func TestMatchIssues(t *testing.T) {
 					ID:          10,
 					Subject:     "Fix bug",
 					Description: fmt.Sprintf("%s: owner/repo\n%s: 99\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug", PrefixGithubRepository, PrefixGithubIssueID),
-					AssignedTo:  &ProjektoveUser{ID: 1, Name: "tester"},
+					AssignedTo:  &ProjektoveUser{ID: 1},
 				},
 			},
 			github: map[string][]GithubIssue{
@@ -76,7 +76,7 @@ func TestMatchIssues(t *testing.T) {
 						ID:          10,
 						Subject:     "Fix bug",
 						Description: fmt.Sprintf("%s: owner/repo\n%s: 99\nhttps://github.com/owner/repo/issues/99\n\nFix the crashing bug", PrefixGithubRepository, PrefixGithubIssueID),
-						AssignedTo:  &ProjektoveUser{ID: 1, Name: "tester"},
+						AssignedTo:  &ProjektoveUser{ID: 1},
 					},
 					Github: &GithubIssue{
 						ID:    99,
@@ -338,10 +338,10 @@ func TestSynchronize(t *testing.T) {
 					ID:          200,
 					Subject:     "Assigned task",
 					Description: fmt.Sprintf("%s: team/repo", PrefixGithubRepository),
-					AssignedTo:  &ProjektoveUser{ID: 1, Name: "proje"},
+					AssignedTo:  &ProjektoveUser{ID: 1},
 				},
 			},
-			users: Users{{Github: GithubUser{ID: 736, Login: "login"}, Projektove: ProjektoveUser{ID: 1, Name: "proje"}}},
+			users: Users{{Github: GithubUser{Login: "login"}, Projektove: ProjektoveUser{ID: 1}}},
 			wantCreates: []createCall{
 				{repo: "team/repo", issue: GithubIssueCreate{
 					Title:     "Assigned task",
@@ -365,7 +365,7 @@ func TestSynchronize(t *testing.T) {
 					ID:          200,
 					Subject:     "Assigned task",
 					Description: fmt.Sprintf("%s: team/proj\n\n%s: 2", PrefixGithubRepository, PrefixGithubIssueID),
-					AssignedTo:  &ProjektoveUser{ID: 1, Name: "proje"},
+					AssignedTo:  &ProjektoveUser{ID: 1},
 					Status:      ProjektoveIssueStatus{ID: int(ProjektoveStatusClosed), IsClosed: true},
 				},
 			},
@@ -374,7 +374,7 @@ func TestSynchronize(t *testing.T) {
 					{ID: 2, Title: "Old feature", State: GithubIssueStateOpen},
 				},
 			},
-			users: Users{{Github: GithubUser{ID: 736, Login: "login"}, Projektove: ProjektoveUser{ID: 1, Name: "proje"}}},
+			users: Users{{Github: GithubUser{Login: "login"}, Projektove: ProjektoveUser{ID: 1}}},
 			wantUpdateGithub: []updateCallGithub{
 				{issueID: 2, update: GithubIssueUpdate{Body: IssueClosedInProjektove}},
 			},
@@ -386,7 +386,7 @@ func TestSynchronize(t *testing.T) {
 					ID:          200,
 					Subject:     "Assigned task",
 					Description: fmt.Sprintf("%s: team/proj\n\n%s: 2", PrefixGithubRepository, PrefixGithubIssueID),
-					AssignedTo:  &ProjektoveUser{ID: 1, Name: "proje"},
+					AssignedTo:  &ProjektoveUser{ID: 1},
 					Status:      ProjektoveIssueStatus{ID: int(ProjektoveStatusClosed), IsClosed: true},
 				},
 			},
@@ -395,7 +395,7 @@ func TestSynchronize(t *testing.T) {
 					{ID: 2, Title: "Old feature", State: GithubIssueStateOpen, Body: "body" + IssueClosedInProjektove},
 				},
 			},
-			users: Users{{Github: GithubUser{ID: 736, Login: "login"}, Projektove: ProjektoveUser{ID: 1, Name: "proje"}}},
+			users: Users{{Github: GithubUser{Login: "login"}, Projektove: ProjektoveUser{ID: 1}}},
 		},
 	}
 

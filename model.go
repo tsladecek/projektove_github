@@ -42,8 +42,7 @@ type ProjektoveIssueStatus struct {
 }
 
 type ProjektoveUser struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID int `json:"id"`
 }
 
 type ProjektoveIssueTracker struct {
@@ -127,7 +126,6 @@ const (
 )
 
 type GithubUser struct {
-	ID    int    `json:"id"`
 	Login string `json:"login"`
 }
 
@@ -190,7 +188,7 @@ type Users []User
 
 func (u Users) GetProjektoveUser(g GithubUser) (ProjektoveUser, bool) {
 	for _, user := range u {
-		if user.Github.ID == g.ID {
+		if user.Github.Login == g.Login {
 			return user.Projektove, true
 		}
 	}

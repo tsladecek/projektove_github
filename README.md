@@ -11,14 +11,14 @@ Projektove is the source of truth. Issues marked with `GitHub Repository: owner/
 
 ## Usage
 
-```sh
-go build -o projektove-github ./cmd/cli/
+Download binary from the [releases](https://github.com/tsladecek/projektove_github/releases) page:
 
+```sh
 ./projektove-github \
   --projektoveURL https://your-instance.projektove.cz \
   --projektoveToken YOUR_PROJEKTOVE_TOKEN \
   --githubToken YOUR_GITHUB_TOKEN \
-  --users '[{"projektove": {"id": 1, "name": "joe"}, "github": {"id": 42, "login": "joegithub"}}]'
+  --users '[{"projektove": {"id": 1}, "github": {"login": "joegithub"}}]'
 ```
 
 ### Flags
