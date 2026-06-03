@@ -4,9 +4,10 @@ A CLI tool that synchronizes issues between Projektove (issue tracker) and GitHu
 
 ## How it works
 
-Projektove is the source of truth. Issues marked with `GitHub Repository: owner/repo` in their description are synced to GitHub. When a GitHub issue is closed, the corresponding Projektove issue is also closed.
+Projektove is the source of truth. Issues marked with `GitHub Repository: owner/repo` in their description are synced to GitHub.
 
-The sync is bidirectional for the close action, but Projektove always wins for content.
+- **GitHub issue closes → Projektove issue closes**: When a GitHub issue is closed, the corresponding Projektove issue is also closed.
+- **Projektove issue closes → GitHub description updated**: When a Projektove issue is closed, the GitHub issue is *not* closed (work may have started), but its description is appended with a note that the issue has been closed in Projektove.
 
 ## Usage
 
