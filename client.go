@@ -1,7 +1,6 @@
 package projektove
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -64,29 +63,7 @@ func NewClient(opts ...ClientOption) *Client {
 	return c
 }
 
-func (c *Client) Do(ctx context.Context, method, url string, body, target any) error {
-	var bodyReader io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("marshal request body: %w", err)
-		}
-		bodyReader = bytes.NewReader(data)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
-	if err != nil {
-		return fmt.Errorf("create request: %w", err)
-	}
-
-	if bodyReader != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	return c.DoRaw(req, target)
-}
-
-func (c *Client) DoRaw(req *http.Request, target any) error {
+func (c *Client) Do(req *http.Request, target any) (*http.Response, error) {
 	req = req.Clone(req.Context())
 
 	var lastErr error
@@ -94,12 +71,12 @@ func (c *Client) DoRaw(req *http.Request, target any) error {
 	for attempt := 0; attempt <= c.retry.MaxRetries; attempt++ {
 		if attempt > 0 {
 			if req.Body != nil && req.GetBody == nil {
-				return fmt.Errorf("request body is not replayable, cannot retry")
+				return nil, fmt.Errorf("request body is not replayable, cannot retry")
 			}
 			if req.GetBody != nil {
 				body, err := req.GetBody()
 				if err != nil {
-					return fmt.Errorf("get request body: %w", err)
+					return nil, fmt.Errorf("get request body: %w", err)
 				}
 				req.Body = body
 				req.ContentLength = -1
@@ -128,10 +105,10 @@ func (c *Client) DoRaw(req *http.Request, target any) error {
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			if target != nil {
 				if err := json.Unmarshal(respBody, target); err != nil {
-					return fmt.Errorf("unmarshal response: %w", err)
+					return nil, fmt.Errorf("unmarshal response: %w", err)
 				}
 			}
-			return nil
+			return resp, nil
 		}
 
 		if c.retry.ShouldRetry(resp.StatusCode) {
@@ -142,10 +119,10 @@ func (c *Client) DoRaw(req *http.Request, target any) error {
 			continue
 		}
 
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	return fmt.Errorf("max retries exceeded: %w", lastErr)
+	return nil, fmt.Errorf("max retries exceeded: %w", lastErr)
 }
 
 func (c *Client) wait(ctx context.Context, attempt int) {

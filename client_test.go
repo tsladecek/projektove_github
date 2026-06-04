@@ -265,57 +265,10 @@ func TestClient_Do(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, req, target := tt.setup(t)
-			err := client.DoRaw(req, target)
+			_, err := client.Do(req, target)
 			tt.check(t, err)
 		})
 	}
-}
-
-func TestClient_Do_convenience(t *testing.T) {
-	t.Parallel()
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-		var got testPayload
-		json.NewDecoder(r.Body).Decode(&got)
-		assert.Equal(t, "sent", got.Key)
-		json.NewEncoder(w).Encode(map[string]string{"reply": "ok"})
-	}))
-	t.Cleanup(ts.Close)
-
-	client := NewClient()
-	var result struct {
-		Reply string `json:"reply"`
-	}
-	err := client.Do(context.Background(), "POST", ts.URL, testPayload{Key: "sent"}, &result)
-	require.NoError(t, err)
-	assert.Equal(t, "ok", result.Reply)
-}
-
-func TestClient_Do_convenience_no_body(t *testing.T) {
-	t.Parallel()
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Empty(t, r.Header.Get("Content-Type"))
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	t.Cleanup(ts.Close)
-
-	client := NewClient()
-	err := client.Do(context.Background(), "DELETE", ts.URL, nil, nil)
-	require.NoError(t, err)
-}
-
-func TestClient_Do_convenience_request_error(t *testing.T) {
-	t.Parallel()
-
-	client := NewClient(WithRetryConfig(RetryConfig{
-		MaxRetries:  1,
-		InitialWait: time.Millisecond,
-	}))
-	var target struct{}
-	err := client.Do(context.Background(), "GET", "http://127.0.0.1:1/nonexistent", nil, &target)
-	require.Error(t, err)
 }
 
 func TestClient_Do_response_decode(t *testing.T) {
@@ -331,7 +284,7 @@ func TestClient_Do_response_decode(t *testing.T) {
 	var got struct {
 		Result string `json:"result"`
 	}
-	err := NewClient().DoRaw(req, &got)
+	_, err := NewClient().Do(req, &got)
 	require.NoError(t, err)
 	assert.Equal(t, "hello", got.Result)
 }
@@ -386,7 +339,7 @@ func TestClient_Do_4xx_no_retry_after_partial_body_read(t *testing.T) {
 		InitialWait: time.Millisecond,
 	}))
 
-	err := client.DoRaw(req, nil)
+	_, err := client.Do(req, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "max retries exceeded")
 }

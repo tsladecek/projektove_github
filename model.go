@@ -97,7 +97,7 @@ func (p ProjektoveIssue) GithubID() int {
 }
 
 func (p *ProjektoveIssue) AnnotateWithGithubIssue(g GithubIssue) {
-	p.Description = fmt.Sprintf("%s\n\n%s: %s\n\n%s: %d", p.Description, PrefixGithubIssueURL, g.URL, PrefixGithubIssueID, g.ID)
+	p.Description = fmt.Sprintf("%s\n%s: %s\n%s: %d", p.Description, PrefixGithubIssueURL, g.URL, PrefixGithubIssueID, g.ID)
 }
 
 type ProjektoveIssueUpdate struct {
@@ -150,7 +150,7 @@ func GithubIssueCreateFromProjektove(pi ProjektoveIssue, users Users) (GithubIss
 
 	return GithubIssueCreate{
 		Title:     pi.Subject,
-		Body:      fmt.Sprintf("%s\n\n%s", pi.Description, pi.Link()),
+		Body:      fmt.Sprintf("%s\n%s", pi.Description, pi.Link()),
 		Assignees: assignees,
 	}, nil
 }

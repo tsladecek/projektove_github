@@ -47,12 +47,17 @@ func NewProjektoveAPI(baseURL, token string, client *Client) (Projektove, error)
 	}, nil
 }
 
-func (p ProjektoveAPI) listIssues(ctx context.Context, status *ProjektoveStatus) ([]ProjektoveIssue, error) {
+func (p ProjektoveAPI) listIssues(ctx context.Context, status *ProjektoveStatus, limit, offset int) ([]ProjektoveIssue, error) {
 	u := p.baseURL.JoinPath("issues.json").String()
 
+	q := url.Values{}
+	q.Add("limit", strconv.Itoa(limit))
+	q.Add("offset", strconv.Itoa(offset))
+
 	if status != nil {
-		u = u + "?status_id=" + strconv.Itoa(int(*status))
+		q.Add("status_id", strconv.Itoa(int(*status)))
 	}
+	u = u + "?" + q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
@@ -61,7 +66,7 @@ func (p ProjektoveAPI) listIssues(ctx context.Context, status *ProjektoveStatus)
 	req.Header.Set("X-API-Authorization", p.token)
 
 	var resp projektoveListResponse
-	if err := p.client.DoRaw(req, &resp); err != nil {
+	if _, err := p.client.Do(req, &resp); err != nil {
 		return nil, fmt.Errorf("list issues: %w", err)
 	}
 
@@ -71,16 +76,35 @@ func (p ProjektoveAPI) listIssues(ctx context.Context, status *ProjektoveStatus)
 }
 
 func (p ProjektoveAPI) ListIssues(ctx context.Context) ([]ProjektoveIssue, error) {
-	open, err := p.listIssues(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("when listing open projektove issues: %w", err)
-	}
-	closed, err := p.listIssues(ctx, new(ProjektoveStatusClosed))
-	if err != nil {
-		return nil, fmt.Errorf("when listing closed projektove issues: %w", err)
-	}
+	limit := 100
+	issues := []ProjektoveIssue{}
+	for _, status := range []*ProjektoveStatus{nil, new(ProjektoveStatusClosed)} {
+		offset := 0
 
-	return append(open, closed...), nil
+		for offset < 1000 { // just to cap it
+			received, err := p.listIssues(ctx, status, limit, offset)
+			if err != nil {
+				st := "all"
+				if status != nil {
+					st = strconv.Itoa(int(*status))
+				}
+				return nil, fmt.Errorf("when listing projektove issues in status %q: %w", st, err)
+			}
+
+			if len(received) == 0 {
+				break
+			}
+
+			issues = append(issues, received...)
+
+			if len(received) < limit {
+				break
+			}
+
+			offset = offset + limit
+		}
+	}
+	return issues, nil
 }
 
 func (p ProjektoveAPI) UpdateIssue(ctx context.Context, issueID int, obj ProjektoveIssueUpdate) error {
@@ -101,7 +125,7 @@ func (p ProjektoveAPI) UpdateIssue(ctx context.Context, issueID int, obj Projekt
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-Authorization", p.token)
 
-	if err := p.client.DoRaw(req, nil); err != nil {
+	if _, err := p.client.Do(req, nil); err != nil {
 		return fmt.Errorf("update issue #%d: %w", issueID, err)
 	}
 
