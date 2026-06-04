@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 const defaultGithubURL = "https://api.github.com"
@@ -40,20 +42,50 @@ func (g GithubAPI) repoURL(repository, endpoint string) string {
 	return g.baseURL + "/repos/" + repository + "/" + endpoint
 }
 
-func (g GithubAPI) ListIssues(ctx context.Context, repository string) ([]GithubIssue, error) {
-	u := g.repoURL(repository, "issues") + "?state=all"
+func isThisLastPage(r *http.Response) bool {
+	// https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api?apiVersion=2026-03-10#using-link-headers
+	h := r.Header.Get("link")
+	return !strings.Contains(h, `rel="next"`)
+}
+
+func (g GithubAPI) listIssues(ctx context.Context, repository string, page int) ([]GithubIssue, bool, error) {
+	u := g.repoURL(repository, "issues") + "?state=all&per_page=100&page=" + strconv.Itoa(page)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create list issues request: %w", err)
+		return nil, false, fmt.Errorf("create list issues request: %w", err)
 	}
 	g.setHeaders(req)
 
 	var issues []GithubIssue
-	if err := g.client.DoRaw(req, &issues); err != nil {
-		return nil, fmt.Errorf("list issues for %s: %w", repository, err)
+	resp, err := g.client.Do(req, &issues)
+	if err != nil {
+		return nil, false, fmt.Errorf("list issues for %s: %w", repository, err)
 	}
 
+	return issues, isThisLastPage(resp), nil
+}
+
+func (g GithubAPI) ListIssues(ctx context.Context, repository string) ([]GithubIssue, error) {
+	p := 1
+	issues := []GithubIssue{}
+	for {
+		current, isLastPage, err := g.listIssues(ctx, repository, p)
+		if err != nil {
+			return nil, fmt.Errorf("when listing issues from repository=%q on page=%d: %w", repository, p, err)
+		}
+		issues = append(issues, current...)
+
+		if isLastPage {
+			break
+		}
+
+		// last 500 issues must be more than enough
+		if p > 5 {
+			break
+		}
+		p++
+	}
 	return issues, nil
 }
 
@@ -73,7 +105,7 @@ func (g GithubAPI) CreateIssue(ctx context.Context, repository string, issue Git
 	req.Header.Set("Content-Type", "application/json")
 
 	var created GithubIssue
-	if err := g.client.DoRaw(req, &created); err != nil {
+	if _, err := g.client.Do(req, &created); err != nil {
 		return GithubIssue{}, fmt.Errorf("create issue in %s: %w", repository, err)
 	}
 
@@ -95,7 +127,7 @@ func (g GithubAPI) UpdateIssue(ctx context.Context, repository string, id int, i
 	g.setHeaders(req)
 	req.Header.Set("Content-Type", "application/json")
 
-	if err := g.client.DoRaw(req, nil); err != nil {
+	if _, err := g.client.Do(req, nil); err != nil {
 		return fmt.Errorf("update issue #%d in %s: %w", id, repository, err)
 	}
 
@@ -112,7 +144,7 @@ func (g GithubAPI) GetPullRequest(ctx context.Context, repository string, id int
 	g.setHeaders(req)
 
 	var pr GithubPullRequest
-	if err := g.client.DoRaw(req, &pr); err != nil {
+	if _, err := g.client.Do(req, &pr); err != nil {
 		return GithubPullRequest{}, fmt.Errorf("get pull request #%d from %s: %w", id, repository, err)
 	}
 

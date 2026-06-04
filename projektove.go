@@ -61,7 +61,7 @@ func (p ProjektoveAPI) listIssues(ctx context.Context, status *ProjektoveStatus)
 	req.Header.Set("X-API-Authorization", p.token)
 
 	var resp projektoveListResponse
-	if err := p.client.DoRaw(req, &resp); err != nil {
+	if _, err := p.client.Do(req, &resp); err != nil {
 		return nil, fmt.Errorf("list issues: %w", err)
 	}
 
@@ -101,7 +101,7 @@ func (p ProjektoveAPI) UpdateIssue(ctx context.Context, issueID int, obj Projekt
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-Authorization", p.token)
 
-	if err := p.client.DoRaw(req, nil); err != nil {
+	if _, err := p.client.Do(req, nil); err != nil {
 		return fmt.Errorf("update issue #%d: %w", issueID, err)
 	}
 
