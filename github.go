@@ -80,8 +80,8 @@ func (g GithubAPI) ListIssues(ctx context.Context, repository string) ([]GithubI
 			break
 		}
 
-		// last 500 issues must be more than enough
-		if p > 5 {
+		// just to avoid infinite loop
+		if p > 50 {
 			break
 		}
 		p++
