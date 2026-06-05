@@ -1,9 +1,11 @@
 package projektove
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 )
@@ -46,7 +48,13 @@ func MatchIssues(projektove []ProjektoveIssue, github map[string][]GithubIssue) 
 	return matched
 }
 
-func Synchronize(ctx context.Context, projektove Projektove, github Github, users Users, dryRun bool) error {
+func printPlan(plan map[string]func() error) {
+	for p, _ := range plan {
+		slog.Info(p)
+	}
+}
+
+func Synchronize(ctx context.Context, projektove Projektove, github Github, users Users, dryRun, withConfirmation bool) error {
 	// fetch all issues from projektove
 	projektoveIssues, err := projektove.ListIssues(ctx)
 	if err != nil {
@@ -77,7 +85,7 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 
 	for _, m := range matched {
 		repo := m.Projektove.GithubRepository()
-		key := fmt.Sprintf("ProjektoveIssue: %d, Github Repository: %s", m.Projektove.ID, repo)
+		key := fmt.Sprintf("ProjektoveIssue: %d (%s)\tGithub Repository: %s", m.Projektove.ID, m.Projektove.Subject, repo)
 
 		switch {
 		case m.Github == nil: // create
@@ -127,6 +135,27 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 		return nil
 	}
 
+	if dryRun {
+		printPlan(plan)
+		return nil
+	}
+
+	if withConfirmation {
+		printPlan(plan)
+
+		fmt.Print("Would you like to proceed? [y,N]: ")
+
+		reader := bufio.NewReader(os.Stdin)
+		decision, _ := reader.ReadString('\n')
+
+		decision = strings.TrimSpace(decision)
+
+		if strings.ToLower(decision) != "y" {
+			slog.Info("Aborting")
+			return nil
+		}
+	}
+
 	// Phase 2: Concurrent Execution
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -140,16 +169,14 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 			slog.Info("[START]", "key", k)
 			mu.Unlock()
 
-			if !dryRun {
-				if err := a(); err != nil {
-					mu.Lock()
-					slog.Error("[FAIL]", "key", k, "err", err)
-					mu.Unlock()
-				} else {
-					mu.Lock()
-					slog.Info("[SUCCESS]", "key", k)
-					mu.Unlock()
-				}
+			if err := a(); err != nil {
+				mu.Lock()
+				slog.Error("[FAIL]", "key", k, "err", err)
+				mu.Unlock()
+			} else {
+				mu.Lock()
+				slog.Info("[SUCCESS]", "key", k)
+				mu.Unlock()
 			}
 		}(key, action)
 	}

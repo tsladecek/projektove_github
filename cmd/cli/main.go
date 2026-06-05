@@ -27,6 +27,7 @@ func run() error {
 	githubURL := flag.String("githubURL", "https://api.github.com", "GitHub API base URL")
 	usersRaw := flag.String("users", "", `list of users in JSON format: [{"projektove": {"id": <int>}, "github": {"login": "<string>"}}]`)
 	dryRun := flag.Bool("dryRun", false, "dry run exits before the requests are made")
+	withConfirmation := flag.Bool("withConfirmation", true, "ask for confirmation before executing plan")
 	flag.Parse()
 
 	if *version {
@@ -56,7 +57,7 @@ func run() error {
 		return fmt.Errorf("init github: %w", err)
 	}
 
-	return projektove.Synchronize(context.Background(), projAPI, ghAPI, users, *dryRun)
+	return projektove.Synchronize(context.Background(), projAPI, ghAPI, users, *dryRun, *withConfirmation)
 }
 
 func parseUsers(raw string) (projektove.Users, error) {
