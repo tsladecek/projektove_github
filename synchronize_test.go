@@ -446,7 +446,7 @@ func TestSynchronize(t *testing.T) {
 				return nil
 			}
 
-			err := Synchronize(ctx, mockProj, mockGH, tt.users, false, false)
+			err := Synchronize(ctx, mockProj, mockGH, tt.users, false, true)
 
 			sort.Slice(gotCreates, func(i, j int) bool {
 				return gotCreates[i].repo < gotCreates[j].repo

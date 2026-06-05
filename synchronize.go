@@ -54,7 +54,7 @@ func printPlan(plan map[string]func() error) {
 	}
 }
 
-func Synchronize(ctx context.Context, projektove Projektove, github Github, users Users, dryRun, withConfirmation bool) error {
+func Synchronize(ctx context.Context, projektove Projektove, github Github, users Users, dryRun, withoutConfirmation bool) error {
 	// fetch all issues from projektove
 	projektoveIssues, err := projektove.ListIssues(ctx)
 	if err != nil {
@@ -140,7 +140,7 @@ func Synchronize(ctx context.Context, projektove Projektove, github Github, user
 		return nil
 	}
 
-	if withConfirmation {
+	if !withoutConfirmation {
 		printPlan(plan)
 
 		fmt.Print("Would you like to proceed? [y,N]: ")
