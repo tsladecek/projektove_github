@@ -11,6 +11,8 @@ import (
 	projektove "github.com/tsladecek/projektove_github"
 )
 
+var Version = "dev"
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatalf("error: %v", err)
@@ -18,6 +20,7 @@ func main() {
 }
 
 func run() error {
+	version := flag.Bool("version", false, "print version and exit")
 	projektoveURL := flag.String("projektoveURL", "", "Projektove base URL (required)")
 	projektoveToken := flag.String("projektoveToken", "", "Projektove API token (required)")
 	githubToken := flag.String("githubToken", "", "GitHub API token (required)")
@@ -25,6 +28,11 @@ func run() error {
 	usersRaw := flag.String("users", "", `list of users in JSON format: [{"projektove": {"id": <int>}, "github": {"login": "<string>"}}]`)
 	dryRun := flag.Bool("dryRun", false, "dry run exits before the requests are made")
 	flag.Parse()
+
+	if *version {
+		fmt.Println(Version)
+		return nil
+	}
 
 	if *projektoveURL == "" || *projektoveToken == "" || *githubToken == "" {
 		flag.Usage()
