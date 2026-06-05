@@ -11,10 +11,13 @@ Projektove is the source of truth. Issues marked with `GitHub Repository: owner/
 
 ## Usage
 
-Download binary from the [releases](https://github.com/tsladecek/projektove_github/releases) page:
+Download binary from the [releases](https://github.com/tsladecek/projektove_github/releases) page and put it somewhere on your path:
 
 ```sh
-./projektove-github \
+e.g.
+wget https://github.com/tsladecek/projektove_github/releases/download/{VERSION TAG}/projektove_github-linux-amd64 && chmod +x projektove_github-linux-amd64 && mv projektove_github-linux-amd64 ~/.local/bin/projektove_github
+
+projektove_github \
   --projektoveURL https://your-instance.projektove.cz \
   --projektoveToken YOUR_PROJEKTOVE_TOKEN \
   --githubToken YOUR_GITHUB_TOKEN \
@@ -23,14 +26,16 @@ Download binary from the [releases](https://github.com/tsladecek/projektove_gith
 
 ### Flags
 
-| Flag | Description | Required |
-|------|-------------|----------|
-| `--projektoveURL` | Projektove base URL | yes |
-| `--projektoveToken` | Projektove API token | yes |
-| `--githubToken` | GitHub API token | yes |
-| `--githubURL` | GitHub API base URL (default `https://api.github.com`) | no |
-| `--users` | JSON list mapping Projektove users to GitHub users | no |
-| `--dryRun` | Log actions without executing them | no |
+| Flag | Description | Required | Default |
+|------|-------------|----------|---------|
+| `--projektoveURL` | Projektove base URL | yes | `""` |
+| `--projektoveToken` | Projektove API token | yes | `""` |
+| `--githubToken` | GitHub API token | yes | `""` |
+| `--githubURL` | GitHub API base URL | no | `https://api.github.com` |
+| `--users` | JSON list mapping Projektove users to GitHub users | no | `""` |
+| `--dryRun` | Log actions without executing them | no | `false` |
+| `--withoutConfirmation` | whether to ask for confirmation before executing plan | no | `false` |
+| `--version` | prints version and exits | no | `false` |
 
 ## Issue marker format
 
